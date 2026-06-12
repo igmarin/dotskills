@@ -5,8 +5,10 @@
 # Bootstraps the full igmarin agent skill ecosystem into ~/.agents/skills/.
 #
 # Sources installed (in priority order — later copies override earlier on collision):
-#   4. owainlewis/blueprint        (minimal SDLC baseline)
-#   3. addyosmani/agent-skills     (general engineering skills)
+#   5. owainlewis/blueprint        (minimal SDLC baseline)
+#   4. addyosmani/agent-skills     (general engineering skills)
+#   3. google/skills               (Google Cloud + Gemini skills)
+#   3. cloudflare/skills           (Cloudflare Workers, Agents SDK, Durable Objects)
 #   2. igmarin/agnostic-planning-skills  (language-agnostic planning)
 #   2. igmarin/ruby-core-skills          (shared Ruby process skills)
 #   2. igmarin/rails-agent-skills        (Rails-specific skills)
@@ -34,6 +36,8 @@ DRY_RUN=false
 declare -a SOURCE_REPOS=(
   "owainlewis/blueprint|https://github.com/owainlewis/blueprint.git|skills"
   "addyosmani/agent-skills|https://github.com/addyosmani/agent-skills.git|skills"
+  "google/skills|https://github.com/google/skills.git|skills"
+  "cloudflare/skills|https://github.com/cloudflare/skills.git|skills"
   "igmarin/agnostic-planning-skills|https://github.com/igmarin/agnostic-planning-skills.git|skills"
   "igmarin/ruby-core-skills|https://github.com/igmarin/ruby-core-skills.git|skills"
   "igmarin/rails-agent-skills|https://github.com/igmarin/rails-agent-skills.git|skills"

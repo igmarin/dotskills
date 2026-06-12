@@ -35,8 +35,10 @@ The installer pulls from these sources, in priority order:
 | 2 | [`igmarin/rails-agent-skills`](https://github.com/igmarin/rails-agent-skills) | Rails-specific TDD, DDD, engines, GraphQL |
 | 2 | [`igmarin/ruby-core-skills`](https://github.com/igmarin/ruby-core-skills) | Shared Ruby process skills |
 | 2 | [`igmarin/agnostic-planning-skills`](https://github.com/igmarin/agnostic-planning-skills) | Language-agnostic planning, PRDs, sprints |
-| 3 | [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills) | General engineering skills (23 skills) |
-| 4 (lowest) | [`owainlewis/blueprint`](https://github.com/owainlewis/blueprint) | Minimal SDLC baseline (spec, plan, tdd, review) |
+| 3 | [`google/skills`](https://github.com/google/skills) | Google Cloud + Gemini API skills (GKE, Cloud Run, BigQuery, WAF, etc.) |
+| 3 | [`cloudflare/skills`](https://github.com/cloudflare/skills) | Cloudflare Workers, Agents SDK, Durable Objects, Wrangler |
+| 4 | [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills) | General engineering skills (23 skills) |
+| 5 (lowest) | [`owainlewis/blueprint`](https://github.com/owainlewis/blueprint) | Minimal SDLC baseline (spec, plan, tdd, review) |
 
 **Collision policy:** when two sources provide a skill with the same name, the higher-priority source wins. My domain repos override the general ones; my personal skills override everything.
 
