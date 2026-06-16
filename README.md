@@ -46,7 +46,7 @@ The installer pulls from these sources, in priority order:
 
 | Skill | What it does |
 |-------|-------------|
-| [`setup-rs-guard`](skills/setup-rs-guard/SKILL.md) | Full runbook for adding rs-guard AI PR review to any of my repos: GitHub Actions workflow, pre-commit hook, `.reviewer.toml` config, bundled binaries, branch protection, labels, and project board. Includes a gotchas table of everything that went wrong the first time. |
+| [`setup-rs-guard`](skills/setup-rs-guard/SKILL.md) | Full runbook for adding rs-guard AI PR review to any of my repos: GitHub Actions workflow, pre-commit hook, `.reviewer.toml` config, bundled binaries, branch protection, and project board. Includes a gotchas table of everything that went wrong the first time. |
 
 ## Install
 
@@ -70,6 +70,16 @@ To update everything later:
 
 Re-running is safe — it pulls the latest from each source and re-copies.
 
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Show what would happen without making changes |
+| `--verbose` | Log each command as it executes |
+| `--only=slug1,slug2` | Install only specified sources (comma-separated) |
+| `--uninstall` / `--clean` | Remove all installed skills from `~/.agents/skills/` |
+| `--help` | Show usage information |
+
 ### Dry run
 
 ```bash
@@ -78,6 +88,30 @@ Re-running is safe — it pulls the latest from each source and re-copies.
 
 Shows exactly what would be installed without making any changes.
 
+### Verbose mode
+
+```bash
+./install.sh --verbose
+```
+
+Logs each command being executed for debugging or transparency.
+
+### Selective install
+
+```bash
+./install.sh --only=igmarin/rails-agent-skills,igmarin/ruby-core-skills
+```
+
+Installs only the specified sources. Personal skills from this repo are always installed regardless of the `--only` filter (they have the highest priority).
+
+### Uninstall
+
+```bash
+./install.sh --uninstall
+```
+
+Removes all skills from `~/.agents/skills/` with a confirmation prompt.
+
 ## Adapting this for yourself
 
 1. Fork this repo
@@ -85,17 +119,22 @@ Shows exactly what would be installed without making any changes.
 3. Edit the `SOURCE_REPOS` array in `install.sh` — add your own repos, remove mine
 4. Update the README table above
 
-The install script has no external dependencies beyond `git` and `bash`.
+The install script requires `git` (standard on macOS/Linux).
 
 ## Structure
 
 ```
 dotskills/
-├── install.sh              # Ecosystem bootstrap installer
-├── skills/                 # Personal skills (shipped with this repo)
+├── install.sh             # Ecosystem bootstrap installer
+├── skills/                # Personal skills (shipped with this repo)
 │   └── setup-rs-guard/
 │       └── SKILL.md
 └── README.md
 ```
 
 Source clones are stored at `~/.dotskills/sources/` (not committed here).
+
+## Error handling
+
+When a source repository has uncommitted changes, the installer automatically uses `git fetch` followed by `git reset --hard` to ensure a clean update without merge conflicts. This prevents "dirty working directory" errors during updates.
+
