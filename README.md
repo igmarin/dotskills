@@ -1,15 +1,18 @@
 # dotskills
 
-My personal agent skill ecosystem — one installer that bootstraps everything I need to work with AI coding agents across any project.
+My personal agent skill ecosystem — one installer for skills I author, plus a local script for Serena / CodeGraph / Graphify / Repomix.
 
 ## What this is
 
 Agent skills are structured instruction files (`SKILL.md`) that teach AI coding agents how to do specific things: write a PRD, run a TDD loop, set up rs-guard, review code. They live in `~/.agents/skills/` and are loaded on demand by agents like Claude Code, Devin, and others.
 
-This repo does two things:
+This repo does three things:
 
-1. **Holds my personal skills** — skills that are specific to my setup, my GitHub repos, and my toolchain. These live in `skills/` here.
-2. **Installs my full skill ecosystem** — a single `install.sh` that clones and installs skills from all the repos I depend on, in the right order.
+1. **Holds my personal skills** — skills that are specific to my setup. These live in `skills/` here. `setup-rs-guard` is optional and is **not** copied on a default `./install.sh`.
+2. **Installs skills I author** — `bin/install-skills.sh` (root `./install.sh` is a shim) clones my repos and copies their `skills/` trees into `~/.agents/skills/`.
+3. **Houses `bin/setup-ai-tools.sh`** — a local (human) installer for Serena, CodeGraph, Graphify, and Repomix. Not a skill.
+
+One configuration flow: `./bin/dotskills`. In a terminal that is **one gum menu** (skills extras + tools + repos), then skills run, then tools. Commands (`skills` / `tools` / `all`) are for scripts and CI.
 
 ## Why public
 
@@ -19,50 +22,85 @@ Skills are configuration for AI agents, not secrets. Sharing them openly means:
 - The install approach is reproducible on any machine
 - It's a useful reference for anyone building their own skill ecosystem
 
+The default install must work for a fork that never uses rs-guard or Elixir.
+
 ## Why "personal"
 
-The skills in `skills/` here are **opinionated to my specific setup**. For example, `setup-rs-guard` references my GitHub username, my repo names, my specific `.reviewer.toml` schema discoveries, and the exact mistakes I made the first time. These are not general-purpose skills — they're a personal runbook.
+The skills in `skills/` here are **opinionated to my specific setup**. For example, `setup-rs-guard` references my GitHub username, my repo names, and the mistakes I made the first time. These are not general-purpose skills — they're a personal runbook.
 
 If you find them useful, fork this repo and replace the personal references with your own.
 
-## Skill ecosystem
+## `./install.sh` vs npx
 
-The installer pulls from these sources, in priority order:
+**Clone with `./install.sh`** only for skills you author. It copies trees into `~/.agents/skills/` and will overwrite a same-named skill that npx already put there.
 
-| Priority | Source | What it provides |
-|----------|--------|-----------------|
-| 1 (highest) | `dotskills/skills/` (this repo) | Personal glue skills — always win on collision |
-| 2 | [`igmarin/rails-agent-skills`](https://github.com/igmarin/rails-agent-skills) | Rails-specific TDD, DDD, engines, GraphQL |
-| 2 | [`igmarin/ruby-core-skills`](https://github.com/igmarin/ruby-core-skills) | Shared Ruby process skills |
-| 2 | [`igmarin/agnostic-planning-skills`](https://github.com/igmarin/agnostic-planning-skills) | Language-agnostic planning, PRDs, sprints |
-| 3 | [`google/skills`](https://github.com/google/skills) | Google Cloud + Gemini API skills (GKE, Cloud Run, BigQuery, WAF, etc.) |
-| 3 | [`cloudflare/skills`](https://github.com/cloudflare/skills) | Cloudflare Workers, Agents SDK, Durable Objects, Wrangler |
-| 4 | [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills) | General engineering skills (23 skills) |
-| 5 (lowest) | [`owainlewis/blueprint`](https://github.com/owainlewis/blueprint) | Minimal SDLC baseline (spec, plan, tdd, review) |
+**Install third-party collections with npx**, not a git clone. `npx skills install -g <slug> --all` pulls the whole collection and updates it the same way later. Cloning those repos here fights npx and goes stale.
 
-**Collision policy:** when two sources provide a skill with the same name, the higher-priority source wins. My domain repos override the general ones; my personal skills override everything.
+This machine's `~/.agents/skills/` mix is not a source of truth and is not harvested into this repo.
+
+## Skill sources
+
+### `./install.sh` (clone)
+
+| Priority | Source | When |
+|----------|--------|------|
+| 1 (highest) | `dotskills/skills/` (this repo) | Always (generic personal). **`setup-rs-guard` only with `--with-rs-guard`.** |
+| 2 | [`igmarin/rails-agent-skills`](https://github.com/igmarin/rails-agent-skills) | Default |
+| 2 | [`igmarin/ruby-core-skills`](https://github.com/igmarin/ruby-core-skills) | Default |
+| 2 | [`igmarin/agnostic-planning-skills`](https://github.com/igmarin/agnostic-planning-skills) | Default |
+| 2 | [`igmarin/elixir-phoenix-skills`](https://github.com/igmarin/elixir-phoenix-skills) | `--with=elixir-phoenix-skills` (work-only) |
+
+**Collision policy:** later copies win. Personal skills override everything.
+
+### npx (collections — not cloned)
+
+Pass `--all` because these are collections:
+
+```bash
+npx skills install -g owainlewis/agent-skills --all
+npx skills install -g owainlewis/blueprint --all
+npx skills install -g mattpocock/skills --all
+npx skills install -g dietrichgebert/ponytail --all
+```
+
+`./install.sh --with-community` runs those four. It does **not** clone them.
+
+### Optional extras (off by default)
+
+| Flag | What it adds |
+|------|----------------|
+| `--with-community` | npx-install the four collections above |
+| `--with=elixir-phoenix-skills` | Clone [`igmarin/elixir-phoenix-skills`](https://github.com/igmarin/elixir-phoenix-skills) — work machine only |
+| `--with-rs-guard` | Copy `skills/setup-rs-guard` (personal AI-review runbook; not for every fork) |
 
 ## Personal skills
 
 | Skill | What it does |
 |-------|-------------|
-| [`setup-rs-guard`](skills/setup-rs-guard/SKILL.md) | Full runbook for adding rs-guard AI PR review to any of my repos: GitHub Actions workflow, pre-commit hook, `.reviewer.toml` config, bundled binaries, branch protection, and project board. Includes a gotchas table of everything that went wrong the first time. |
+| [`setup-rs-guard`](skills/setup-rs-guard/SKILL.md) *(optional)* | Runbook for adding rs-guard **v1.6.0** / **`deepseek-v4-pro`** to a repo. Install only with `./install.sh --with-rs-guard`. |
 
 ## Install
 
 ```bash
 git clone https://github.com/igmarin/dotskills.git
 cd dotskills
-./install.sh
+./bin/dotskills              # gum: skills + tools as one flow
+./install.sh                 # skills only (shim)
+./bin/dotskills all --no-gum --no-install .
 ```
+
+`./bin/dotskills` with no command, in a terminal, is the same unit: one gum session, then skills, then tools.  
+`./bin/dotskills skills [flags]` → `bin/install-skills.sh`  
+`./bin/dotskills tools [flags]` → `bin/setup-ai-tools.sh`  
+`./bin/dotskills all [tools flags]` → skills (defaults), then tools (no gum unless tools is run alone without flags).
 
 This will:
 
-1. Create `~/.dotskills/sources/` and clone all source repos there
-2. Copy all skills into `~/.agents/skills/` in priority order
-3. Install personal skills last (they always win)
+1. Create `~/.dotskills/sources/` and clone the **owned** source repos there
+2. Copy those skills into `~/.agents/skills/`
+3. Copy generic personal skills last (they always win). `setup-rs-guard` is not copied unless you pass `--with-rs-guard`
 
-To update everything later:
+To update later:
 
 ```bash
 ./install.sh
@@ -76,7 +114,10 @@ Re-running is safe — it pulls the latest from each source and re-copies.
 |------|-------------|
 | `--dry-run` | Show what would happen without making changes |
 | `--verbose` | Log each command as it executes |
-| `--only=slug1,slug2` | Install only specified sources (comma-separated) |
+| `--only=slug1,slug2` | Install only specified sources (comma-separated). Generic personal skills still copy; `setup-rs-guard` stays gated |
+| `--with-community` | npx-install owainlewis/agent-skills, owainlewis/blueprint, mattpocock/skills, dietrichgebert/ponytail (`--all`) |
+| `--with=elixir-phoenix-skills` | Also install elixir-phoenix-skills (work-only) |
+| `--with-rs-guard` | Also copy `skills/setup-rs-guard` |
 | `--uninstall` / `--clean` | Remove all installed skills from `~/.agents/skills/` |
 | `--help` | Show usage information |
 
@@ -102,7 +143,7 @@ Logs each command being executed for debugging or transparency.
 ./install.sh --only=igmarin/rails-agent-skills,igmarin/ruby-core-skills
 ```
 
-Installs only the specified sources. Personal skills from this repo are always installed regardless of the `--only` filter (they have the highest priority).
+Installs only the specified sources. Generic personal skills from this repo are still copied. `setup-rs-guard` is still skipped unless `--with-rs-guard`.
 
 ### Uninstall
 
@@ -112,11 +153,46 @@ Installs only the specified sources. Personal skills from this repo are always i
 
 Removes all skills from `~/.agents/skills/` with a confirmation prompt.
 
+## Local tool setup (`bin/setup-ai-tools.sh`)
+
+This is a **bash program you run in a terminal**. It is not an agent skill. Do not look for `/setup-ai-tools`.
+
+It installs and configures Serena, CodeGraph, Graphify, and Repomix (MCP configs, global gitignore, optional gum TUI).
+
+Home of the script: `bin/setup-ai-tools.sh` in this repo. Always run that file (or a symlink you create). Do not hardcode a volume or username.
+
+Optional: from the parent of this clone, link the script so you can run it next to your other repos:
+
+```bash
+cd /path/to/dotskills
+ln -sfn "$PWD/bin/setup-ai-tools.sh" "$(dirname "$PWD")/setup-ai-tools.sh"
+```
+
+```bash
+# From this repo
+./bin/setup-ai-tools.sh --no-gum --no-install .
+
+# From the parent folder, if you created the symlink
+../setup-ai-tools.sh /path/to/a/repo
+```
+
+Interactive (gum): run with no mode flags in a terminal. Flags still work for scripts and CI (`--no-gum`, `--no-install`, `--force`, `--serena-only`, `--codegraph-only`, `--graphify-only`).
+
+**Graphify extra:** `uv tool install --force --reinstall "graphifyy[mcp,openai]"`. DeepSeek extract needs the `openai` extra.
+
+**CodeGraph:**
+
+- `.codegraph` missing → `codegraph init`
+- `.codegraph` exists → skip
+- `--force` and `.codegraph` exists → `codegraph sync` (incremental), not `init`, not a full `index`
+
+The script also writes a `.graphifyignore` so generated MCP configs are not treated as extract inputs.
+
 ## Adapting this for yourself
 
 1. Fork this repo
 2. Replace the personal skills in `skills/` with your own
-3. Edit the `SOURCE_REPOS` array in `install.sh` — add your own repos, remove mine
+3. Edit the `OWNED_REPOS` array in `install.sh` — add your own repos, remove mine
 4. Update the README table above
 
 The install script requires `git` (standard on macOS/Linux).
@@ -125,16 +201,25 @@ The install script requires `git` (standard on macOS/Linux).
 
 ```
 dotskills/
-├── install.sh             # Ecosystem bootstrap installer
-├── skills/                # Personal skills (shipped with this repo)
-│   └── setup-rs-guard/
+├── bin/
+│   ├── dotskills                  # One flow: gum TUI, or skills | tools | all
+│   ├── install-skills.sh          # Owned skill clones + personal skills/
+│   └── setup-ai-tools.sh          # Serena / CodeGraph / Graphify / Repomix
+├── install.sh                     # Shim → bin/install-skills.sh
+├── skills/                        # Personal skills (shipped with this repo)
+│   └── setup-rs-guard/            # Optional — not copied unless --with-rs-guard
 │       └── SKILL.md
+├── docs/
+│   ├── PLAN-setup-ai-tools-and-refresh.md
+│   ├── PLAN-split-setup-scripts.md      # later: extract setup-ai-tools into bin/lib/
+│   └── PROMPT-split-setup-scripts.md    # paste this in the next window
 └── README.md
 ```
 
 Source clones are stored at `~/.dotskills/sources/` (not committed here).
 
+Any convenience symlink lives **outside** this git repo on purpose (parent folder of the clone).
+
 ## Error handling
 
 When a source repository has uncommitted changes, the installer automatically uses `git fetch` followed by `git reset --hard` to ensure a clean update without merge conflicts. This prevents "dirty working directory" errors during updates.
-
