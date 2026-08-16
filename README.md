@@ -200,7 +200,7 @@ Interactive (gum): run with no mode flags in a terminal. Flags still work for sc
 4. Update the README table above
 
 `bin/install-skills.sh` (and the `./install.sh` shim) needs `git`. `--with-community` also needs `npx`.
-`bin/setup-ai-tools.sh` needs `uv` (for Serena/Graphify), `npm` (for CodeGraph), and optionally `brew` (for gum).
+`bin/setup-ai-tools.sh` needs `uv` (for Serena/Graphify) and `npm` (for CodeGraph). `bin/dotskills` uses `gum` for the interactive menu.
 
 ## Structure
 
@@ -216,7 +216,9 @@ dotskills/
 │       ├── detect-tools.sh        # Tool resolution + optional install
 │       ├── codegraph.sh           # init / skip / sync
 │       ├── graphify.sh            # Extra check, extract, .graphifyignore
-│       └── write-mcp.sh           # Global + per-repo MCP / gitignore / rules
+│       ├── gitignore.sh           # Global gitignore + untrack MCP configs
+│       ├── grok-mcp.sh            # Grok MCP config (TOML) and rules
+│       └── write-mcp.sh           # Devin / Cline / Zed MCP + rules orchestrator
 ├── install.sh                     # Shim → bin/install-skills.sh
 ├── skills/                        # Personal skills (shipped with this repo)
 │   └── setup-rs-guard/            # Optional — not copied unless --with-rs-guard
@@ -228,6 +230,15 @@ dotskills/
 │   └── PROMPT-split-setup-scripts.md    # Paste this in the next window
 └── README.md
 ```
+
+## Lib file contracts
+
+Each `bin/lib/*.sh` is sourced by callers and is **not** executed directly. They follow these rules:
+
+- `return 1` on recoverable failure; `exit 1` is reserved for top-level scripts.
+- No `set -e` inside lib files; the caller sets the execution policy.
+- Lib files may source `common.sh`; they do not depend on machine-absolute paths.
+- `write-mcp.sh` is the orchestrator; `gitignore.sh` and `grok-mcp.sh` are single-client/concern modules it sources.
 
 Source clones are stored at `~/.dotskills/sources/` (not committed here).
 

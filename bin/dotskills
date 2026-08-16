@@ -15,6 +15,9 @@ set -euo pipefail
 
 # shellcheck source=lib/paths.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/paths.sh"
+# shellcheck source=lib/common.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
+
 ROOT="$(cd "$(script_dir_of "${BASH_SOURCE[0]}")/.." && pwd)"
 SKILLS="$ROOT/bin/install-skills.sh"
 TOOLS="$ROOT/bin/setup-ai-tools.sh"
@@ -82,22 +85,6 @@ has_line() {
   return 1
 }
 
-is_project_dir() {
-  local dir="${1%/}"
-  [ -d "$dir/.git" ] || [ -f "$dir/.serena/project.yml" ] || [ -f "$dir/Cargo.toml" ] || [ -f "$dir/Gemfile" ] || [ -f "$dir/package.json" ]
-}
-
-list_child_repo_names() {
-  local parent="${1%/}"
-  local d name
-  for d in "$parent"/*/; do
-    [ -d "$d" ] || continue
-    name="$(basename "${d%/}")"
-    [[ "$name" == .* ]] && continue
-    printf '%s\n' "$name"
-  done
-}
-
 run_unified_gum() {
   local scan_root="$1"
   local jobs extras tools_sel selected_names name
@@ -105,7 +92,7 @@ run_unified_gum() {
   local with_community=false with_elixir=false with_rs_guard=false
   local run_serena=true run_codegraph=true run_graphify=true
   local force=false auto_install=true
-  local -a repo_names=() selected_repos=() skill_args=() tool_args=(--no-gum)
+  local -a repo_names=() selected_repos=() skill_args=() tool_args=()
 
   jobs="$(gum choose --no-limit \
     --header "What to configure? (space to toggle, enter to confirm)" \
@@ -219,15 +206,12 @@ case "$cmd" in
     exec "$SKILLS" "$@"
     ;;
   tools)
-    if $SKIP_GUM; then
-      exec "$TOOLS" --no-gum "$@"
-    fi
+    # setup-ai-tools.sh is the flag-driven tool runner; dotskills already owns the TUI.
     exec "$TOOLS" "$@"
     ;;
   all)
     skill_flags=()
     tool_flags=()
-    $SKIP_GUM && tool_flags+=(--no-gum)
     for a in "$@"; do
       case "$a" in
         --dry-run|--dry-run=true) skill_flags+=(--dry-run) ;;

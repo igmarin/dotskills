@@ -35,3 +35,21 @@ add_if_missing() {
     echo "$pattern" >> "$file"
   fi
 }
+
+# Return 0 if dir looks like a project repo.
+is_project_dir() {
+  local dir="${1%/}"
+  [ -d "$dir/.git" ] || [ -f "$dir/.serena/project.yml" ] || [ -f "$dir/Cargo.toml" ] || [ -f "$dir/Gemfile" ] || [ -f "$dir/package.json" ]
+}
+
+# Print child directory names under parent that may be project repos.
+list_child_repo_names() {
+  local parent="${1%/}"
+  local d name
+  for d in "$parent"/*/; do
+    [ -d "$d" ] || continue
+    name="$(basename "${d%/}")"
+    [[ "$name" == .* ]] && continue
+    printf '%s\n' "$name"
+  done
+}
