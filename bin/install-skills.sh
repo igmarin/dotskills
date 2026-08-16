@@ -161,21 +161,34 @@ validate_only_list() {
   done
 }
 
-# $1 = validated slug to check under SOURCES_DIR
-# Validates that SOURCES_DIR exists and is safe, then ensures slug won't escape
+# $1 = validated slug or existing path to check under SOURCES_DIR
+# Resolves real paths with -P to prevent symlink attacks and checks containment
 assert_under_sources() {
-  local slug="$1"
+  local slug_or_path="$1"
   local sources_resolved
+  local target
   
-  # Resolve SOURCES_DIR to its real location to prevent symlink attacks
-  sources_resolved="$(cd "$SOURCES_DIR" 2>/dev/null && pwd)" || {
+  # Resolve SOURCES_DIR to its real physical location to prevent symlink attacks
+  sources_resolved="$(cd "$SOURCES_DIR" 2>/dev/null && pwd -P)" || {
     echo "Error: cannot resolve SOURCES_DIR: $SOURCES_DIR" >&2
     exit 1
   }
   
-  # Since slug is already validated by valid_slug(), it cannot contain
-  # path traversal. The path "${SOURCES_DIR}/${slug}" is guaranteed to be
-  # under sources_resolved. No need to resolve the non-existent local_path.
+  # If the argument is an existing path, resolve its physical location;
+  # otherwise construct the path from the validated slug.
+  if [ -e "$slug_or_path" ]; then
+    target="$(cd "$slug_or_path" 2>/dev/null && pwd -P)" || {
+      echo "Error: cannot resolve path: $slug_or_path" >&2
+      exit 1
+    }
+  else
+    target="${sources_resolved}/${slug_or_path}"
+  fi
+  
+  if [[ "$target" != "$sources_resolved"/* ]]; then
+    echo "Error: refusing path outside $SOURCES_DIR: $slug_or_path (resolved to $target)" >&2
+    exit 1
+  fi
 }
 
 should_process_slug() {
@@ -355,7 +368,7 @@ for entry in "${SOURCE_REPOS[@]}"; do
     exit 1
   fi
   local_path="${SOURCES_DIR}/${slug}"
-  assert_under_sources "$slug"
+  assert_under_sources "$local_path"
   
   # Skip if --only filter doesn't match
   if ! should_process_slug "$slug"; then
@@ -399,7 +412,7 @@ for entry in "${SOURCE_REPOS[@]}"; do
     dest="${TARGET_DIR}/${skill_name}"
     
     # Record whether dest existed before copy (for accurate counting)
-    local dest_existed=false
+    dest_existed=false
     [ -d "$dest" ] && dest_existed=true
     
     run cp -r "$skill_dir" "${TARGET_DIR}/"

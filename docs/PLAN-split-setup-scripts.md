@@ -137,23 +137,35 @@ Remove dead code, unused variables, and consolidate imports in setup-ai-tools.sh
 ## Proof (whole plan)
 
 ```bash
-bash -n bin/dotskills bin/setup-ai-tools.sh bin/install-skills.sh bin/lib/*.sh
+set -euo pipefail
+
+for script in bin/dotskills bin/setup-ai-tools.sh bin/install-skills.sh bin/lib/*.sh; do
+  bash -n "$script" || { echo "Syntax error in $script"; exit 1; }
+done
+
+# lib files must not exit directly or set -e themselves
+if grep -r "exit 1" bin/lib/*.sh >/dev/null; then
+  echo "Forbidden: lib files contain exit 1 (use return 1 instead)"
+  exit 1
+fi
+
+if grep -r "set -e" bin/lib/*.sh >/dev/null; then
+  echo "Forbidden: lib files set -e themselves (caller sets it)"
+  exit 1
+fi
+
 ./bin/dotskills tools --no-gum --no-install .
 # no CodeGraph "Initializing" / init when .codegraph exists
 ./bin/dotskills --help
-
-# Additional verification
-grep -r "exit 1" bin/lib/*.sh  # Should be empty (use return instead)
-grep -r "set -e" bin/lib/*.sh   # Should be empty (caller sets it)
-bash -n bin/lib/*.sh           # Syntax check all lib files
 ```
 
 Interactive check (human, next session if a TTY is available): `./bin/dotskills` is still **one** gum session.
 
 ## Rollback strategy
 
-After each task, commit with message like "Extract: detect-tools (Task 1)".
-If the next task breaks behavior, use `git reset --hard HEAD~1` to revert.
+After each task, commit with a clear message like "Extract: detect-tools (Task 1)" and ensure the worktree is clean before proceeding.
+
+If the next task breaks behavior, identify the exact commit to revert (the last successful task commit) and use `git reset --hard <that-commit-hash>`. Do not blindly use `HEAD~1` unless you have verified it points to the last good task commit.
 
 ---
 

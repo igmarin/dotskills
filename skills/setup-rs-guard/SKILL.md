@@ -63,7 +63,14 @@ cp target/x86_64-unknown-linux-musl/release/rs-guard /PATH/TO/REPO/bin/rs-guard-
 
 # Checksums
 cd /PATH/TO/REPO/bin
-shasum -a 256 rs-guard-macos-arm64 rs-guard-linux-x64 > CHECKSUMS.txt
+{
+  echo "# rs-guard binaries — SHA-256 checksums"
+  echo "# Version: 1.7.0"
+  echo "# Built: YYYY-MM-DD"
+  echo "# Source: https://github.com/nebulaideas/rs-guard"
+  echo ""
+  shasum -a 256 rs-guard-macos-arm64 rs-guard-linux-x64
+} > CHECKSUMS.txt
 ```
 
 `CHECKSUMS.txt` must include: SHA-256 of each binary, rs-guard version **1.7.0**, build date, and source repo.
@@ -355,11 +362,16 @@ These must already be set on the repo before the workflow runs:
 
 ## Integration Pattern
 
-After setup, every PR triggers:
+After setup:
+
+- Non-draft PRs trigger the review process automatically.
+- Draft PRs are ignored until they become ready for review.
 
 ```
-git push → PR opened → rs-guard-review.yml → rs-guard reads .reviewer.toml
+git push → PR opened (non-draft) → rs-guard-review.yml → rs-guard reads .reviewer.toml
   → fetches diff via GITHUB_TOKEN → calls DeepSeek deepseek-v4-pro → posts review via PR Reviews API
+
+PR marked ready for review → rs-guard-review.yml runs with the same flow
 ```
 
 Local: every `git commit` → `hooks/pre-commit-rs-guard` → rs-guard `--dry-run` → prints advisory (never blocks).
