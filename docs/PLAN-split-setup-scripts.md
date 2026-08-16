@@ -1,6 +1,6 @@
-# Plan: split setup-ai-tools.sh (later)
+# Unified plan: split `bin/setup-ai-tools.sh` into `bin/lib/`
 
-Decided 2026-08-15, after the move/refresh and the unified `bin/dotskills` gum flow.
+Decided 2026-08-15.
 **Do not implement in the same session as this plan.** Next window: this file is the source of truth. Do not re-litigate it.
 
 Workspace: this repo only (`dotskills`). Do not edit `rs-guard`. Do not harvest `~/.agents/skills`. Do not commit unless asked.
@@ -9,9 +9,17 @@ Workspace: this repo only (`dotskills`). Do not edit `rs-guard`. Do not harvest 
 
 ## What we are doing
 
-`bin/setup-ai-tools.sh` is one long tools pass. The **configuration flow** is already one unit: `./bin/dotskills` (one gum session → skills → tools). This plan only **extracts** that tools pass into smaller sourced files so a later change (CodeGraph, Graphify extra, MCP writer) is a one-place edit.
+`bin/setup-ai-tools.sh` is one long tools pass. The **configuration flow** is already one unit: `./bin/dotskills` (one gum session → skills → tools). This plan **extracts** that tools pass into smaller sourced files so a later change (CodeGraph, Graphify extra, MCP writer) is a one-place edit.
 
 This is a refactor. Same flags, same skip/sync rules, same extras. No new product.
+
+### Completed context
+
+- `bin/setup-ai-tools.sh` has already been moved into this repo.
+- Graphify extra is `graphifyy[mcp,openai]`.
+- CodeGraph rule is: missing → `init`; exists → skip; `--force` + exists → `sync`.
+- `bin/dotskills` is the one entry point.
+- `setup-rs-guard` stays an opt-in extra.
 
 ---
 
@@ -27,7 +35,8 @@ This is a refactor. Same flags, same skip/sync rules, same extras. No new produc
    - Lib files use `return 1` for errors, not `exit 1`
    - Main script handles error propagation
    - All error messages go to stderr
-8. Behavior that must not change:
+8. **No duplicated helper code.** All lib files source `bin/lib/common.sh`.
+9. Behavior that must not change:
    - Graphify install: `graphifyy[mcp,openai]`
    - CodeGraph: missing → `init`; exists → skip; `--force` + exists → `sync` (not `init`, not `index`)
    - Skills default: three owned repos + generic `skills/`; `setup-rs-guard` only with `--with-rs-guard`
@@ -44,7 +53,7 @@ bin/
 ├── install-skills.sh         # unchanged job: owned clones + extras
 ├── setup-ai-tools.sh         # thin: flags, order of steps, process_project
 └── lib/
-    ├── common.sh             # shared helpers (log, warn, ok, run)
+    ├── common.sh             # shared helpers (log, warn, ok, run, usage header?)
     ├── paths.sh              # already present — script_dir_of
     ├── detect-tools.sh       # resolve PATH + optional install
     ├── codegraph.sh          # init / skip / sync
@@ -54,72 +63,140 @@ bin/
 
 `setup-ai-tools.sh` `source`s the lib files. Do not make the lib files independently invokable unless a later extract needs it.
 
-Suggested `source` from `setup-ai-tools.sh` after `ROOT`/`SCRIPT_DIR` is known:
+Suggested source pattern from `setup-ai-tools.sh` after `SCRIPT_DIR` is known:
 
 ```bash
-LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
+LIB="$SCRIPT_DIR/lib"
 # shellcheck source=lib/common.sh
 . "$LIB/common.sh"
+# shellcheck source=lib/paths.sh
+. "$LIB/paths.sh"
 # shellcheck source=lib/detect-tools.sh
 . "$LIB/detect-tools.sh"
 ```
+
+Lib files source each other (e.g. `write-mcp.sh` → `common.sh`) using the same pattern: resolve `SCRIPT_DIR`/`LIB` from `BASH_SOURCE[0]`.
+
+---
 
 ## State contract
 
 Lib files receive state via:
 - Global variables set by setup-ai-tools.sh (e.g., VERBOSE, DRY_RUN, FORCE)
-- Function arguments (e.g., codegraph_setup "$repo")
+- Function arguments (e.g., `codegraph_setup "$repo"`)
 
 Lib files must NOT:
 - Modify global state without documentation
 - Read from stdin unless explicitly documented
-- Exit directly (use `return 1` for errors, let caller handle propagation)
+- Exit directly (use `return 1` for errors; let caller handle propagation)
+- Call `set -e` themselves
 
 ---
 
 ## Tasks (order — stop after each proof)
 
-### 0. Extract shared utilities
+### Task 0. Extract shared utilities
 
-Move any helper functions used by multiple tools (e.g., log, warn, ok, run) into `bin/lib/common.sh`.
+Create `bin/lib/common.sh` with helpers used by multiple tool lib files:
+- `log`, `info`, `ok`, `warn`
+- `log_cmd`, `run` (respects `DRY_RUN` and `VERBOSE`)
+- Optionally `usage()` only if it is shared; otherwise keep it in `setup-ai-tools.sh`.
 
-**Done when:** No duplicate helper functions remain in the final lib files; `bash -n bin/lib/common.sh` passes.
+Replace duplicate helpers in `setup-ai-tools.sh` with sources.
 
-### 1. Extract detect / install
+**Done when:**
+- `bash -n bin/lib/common.sh` passes
+- `bash -n bin/setup-ai-tools.sh` still passes
+- `./bin/setup-ai-tools.sh --help` still works
+- No duplicate `log/info/ok/warn/run/log_cmd` definitions in `setup-ai-tools.sh`
 
-Move `resolve_tool_bins`, `ensure_uv`, `install_serena`, `install_graphify`, `install_codegraph`, `ensure_missing_tools` into `bin/lib/detect-tools.sh`.
+### Task 1. Extract detect / install
 
-**Done when:** `bash -n` on the two files; `./bin/setup-ai-tools.sh --no-gum --no-install .` still prints the same tool-found lines (or `NOT FOUND`) and does not re-`init` CodeGraph if `.codegraph` exists.
+Move these functions into `bin/lib/detect-tools.sh`:
+- `resolve_tool_bins`
+- `ensure_uv`
+- `install_serena`
+- `install_graphify`
+- `install_codegraph`
+- `ensure_missing_tools`
 
-### 2. Extract CodeGraph
+Keep the global `*_BIN` variables in `setup-ai-tools.sh` (lib uses and returns into them).
 
-Move the `process_project` CodeGraph block into `bin/lib/codegraph.sh` (one function, e.g. `codegraph_setup "$repo"`). Keep the three-way rule in one place. The function should return a status code for "skipped" vs "synced" vs "error" if needed for later use.
+**Done when:**
+- `bash -n` on both files passes
+- `./bin/setup-ai-tools.sh --no-gum --no-install .` still prints the same tool-found lines (or `NOT FOUND`)
+- Does not re-`init` CodeGraph if `.codegraph` exists
 
-**Done when:** `.codegraph` present → no "Initializing" / no `init`. `--force` with index present → `sync` only.
+### Task 2. Extract CodeGraph
 
-### 3. Extract Graphify
+Move the `process_project` CodeGraph block into `bin/lib/codegraph.sh` as one function, e.g. `codegraph_setup "$repo"`.
 
-Move `ensure_graphify_mcp_extra`, `ensure_graphify_ignore`, and the extract block into `bin/lib/graphify.sh`. Extra stays `graphifyy[mcp,openai]`. Consider making the extract block a separate function for testability.
+- Keep the three-way rule in one place.
+- Return status codes: `0` = skipped, `1` = error, maybe `2` = synced (document them in the function comment).
 
-**Done when:** header / install strings still say `[mcp,openai]`; extract still skipped when `graph.json` exists and `--force` is off; `.graphifyignore` still lists generated MCP configs.
+**Done when:**
+- `.codegraph` present → no "Initializing" / no `init`
+- `--force` with index present → `sync` only
+- `./bin/setup-ai-tools.sh --no-gum --no-install .` still behaves the same
 
-### 4. Extract MCP / gitignore writers
+### Task 3. Extract Graphify
 
-Move global gitignore, Devin / Cline / Grok / Zed global setup, `upsert_grok_mcp_toml`, and the per-repo JSON/TOML/clinerules writers into `bin/lib/write-mcp.sh`. Consider extracting `upsert_grok_mcp_toml` into its own file if it's complex.
+Move into `bin/lib/graphify.sh`:
+- `ensure_graphify_mcp_extra`
+- `ensure_graphify_ignore`
+- The extract block (consider a separate `graphify_extract "$repo"` function for testability)
 
-**Done when:** `./bin/setup-ai-tools.sh --no-gum --no-install --skip-serena --skip-codegraph --skip-graphify --repo .` still writes the same config filenames (do not re-run a full multi-repo pass).
+Extra stays `graphifyy[mcp,openai]`.
 
-### 5. Thin `setup-ai-tools.sh` + README
+**Done when:**
+- Header / install strings still say `[mcp,openai]`
+- Extract still skipped when `graph.json` exists and `--force` is off
+- `.graphifyignore` still lists generated MCP configs
 
-`setup-ai-tools.sh` should be flags + call order + `process_project` as a short loop. Update the README structure tree to list `bin/lib/`. Do not change `bin/dotskills` gum copy unless a path broke.
+### Task 4. Extract MCP / gitignore / rules writers
 
-**Done when:** `./bin/dotskills --help` still describes one flow; `./bin/dotskills tools --no-gum --no-install .` still skips CodeGraph init.
+Move into `bin/lib/write-mcp.sh`:
+- Global gitignore updates
+- Devin / Cline / Grok / Zed global MCP configs
+- `upsert_grok_mcp_toml`
+- Per-repo JSON/TOML/clinerules writers
 
-### 6. Cleanup and polish
+If `upsert_grok_mcp_toml` is too complex, consider a separate `bin/lib/grok-mcp.sh` and document the decision.
 
-Remove dead code, unused variables, and consolidate imports in setup-ai-tools.sh.
+**Done when:**
+- `./bin/setup-ai-tools.sh --no-gum --no-install --skip-serena --skip-codegraph --skip-graphify --repo .` still writes the same config filenames
+- Global gitignore contains the same patterns
+- No duplicated writer code in `setup-ai-tools.sh`
 
-**Done when:** `bash -n` passes; no unused variables; grep shows no orphaned comments.
+### Task 5. Thin `setup-ai-tools.sh` + README
+
+`setup-ai-tools.sh` should become:
+- Flag parsing
+- Setting state variables
+- Sourcing lib files
+- A short `process_project` loop that calls `codegraph_setup`, `graphify_*`, `write_*`
+
+Update README structure tree to list `bin/lib/`.
+
+Do not change `bin/dotskills` gum copy unless a path broke.
+
+**Done when:**
+- `./bin/dotskills --help` still describes one flow
+- `./bin/dotskills tools --no-gum --no-install .` still skips CodeGraph init
+
+### Task 6. Cleanup and polish
+
+- Remove dead code
+- Remove unused variables
+- Consolidate imports in `setup-ai-tools.sh`
+- Add `shellcheck source=...` directives above every `.` of a lib file
+- Run `grep -n "^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=" bin/setup-ai-tools.sh` and verify every assignment is used
+
+**Done when:**
+- `bash -n` passes
+- No unused variables
+- No orphaned comments
+- Whole proof passes
 
 ---
 
@@ -134,7 +211,7 @@ Remove dead code, unused variables, and consolidate imports in setup-ai-tools.sh
 
 ---
 
-## Proof (whole plan)
+## Proof (run after every task)
 
 ```bash
 set -euo pipefail
@@ -154,18 +231,26 @@ if grep -r "set -e" bin/lib/*.sh >/dev/null; then
   exit 1
 fi
 
-./bin/dotskills tools --no-gum --no-install .
-# no CodeGraph "Initializing" / init when .codegraph exists
+# Behavior checks
 ./bin/dotskills --help
+./bin/setup-ai-tools.sh --no-gum --no-install .
+# no CodeGraph "Initializing" / init when .codegraph already exists
 ```
 
 Interactive check (human, next session if a TTY is available): `./bin/dotskills` is still **one** gum session.
+
+---
 
 ## Rollback strategy
 
 After each task, commit with a clear message like "Extract: detect-tools (Task 1)" and ensure the worktree is clean before proceeding.
 
-If the next task breaks behavior, identify the exact commit to revert (the last successful task commit) and use `git reset --hard <that-commit-hash>`. Do not blindly use `HEAD~1` unless you have verified it points to the last good task commit.
+If the next task breaks behavior:
+1. Find the last good task commit (e.g., `git log --oneline --since="20 minutes ago"`)
+2. Verify it is the commit you want to keep
+3. Run `git reset --hard <that-commit-hash>`
+
+Do not blindly use `HEAD~1` unless you have verified it points to the last good task commit.
 
 ---
 

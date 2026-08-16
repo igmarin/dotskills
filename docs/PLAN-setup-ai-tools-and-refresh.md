@@ -46,7 +46,7 @@ program you run yourself. Different jobs.
 3. **No new personal skill** for the installer. Document it in `README.md`.
 4. **`setup-rs-guard` is optional.** This is an open-source repo. Forks
    must not get igmarin-specific rs-guard glue (GitHub user, binary
-   paths, project board) unless they ask. Refresh the skill to **v1.6.0**
+   paths, project board) unless they ask. Refresh the skill to **v1.7.0**
    and **`deepseek-v4-pro`** (source:
    `/Volumes/minimini/Developer/Projects/rs-guard`, not
    `~/Developer/Nebula/rs-guard`) so the extra is current. Install only
@@ -135,7 +135,7 @@ and `README.md`.
 
 ### 4. Refresh `skills/setup-rs-guard/SKILL.md` (opt-in extra)
 
-v1.6.0, `deepseek-v4-pro`, current binary/config/workflow facts from
+v1.7.0, `deepseek-v4-pro`, current binary/config/workflow facts from
 `rs-guard` at `/Volumes/minimini/Developer/Projects/rs-guard`. Fix the
 stale Nebula path. Do not invent `.reviewer.toml` keys. Keep the skill
 in the tree; do not install it by default.
@@ -167,7 +167,7 @@ tree should mark `setup-rs-guard` as optional.
 - `bash -n bin/setup-ai-tools.sh` passes
 - Header comments list `graphifyy[mcp,openai]` and the CodeGraph rule
 - `install.sh` default list is owned repos only
-- `setup-rs-guard` documents 1.6.0 and `deepseek-v4-pro`, and is **not**
+- `setup-rs-guard` documents 1.7.0 and `deepseek-v4-pro`, and is **not**
   installed unless `--with-rs-guard`
 - README describes the script and the install/npx split
 - A fresh `./bin/setup-ai-tools.sh --no-gum --no-install <one-repo>` does
