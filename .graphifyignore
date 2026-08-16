@@ -1,0 +1,8 @@
+.cline_mcp_servers.json
+.clinerules
+.mcp.json
+.devin/mcp_config.json
+.devin/config.local.json
+.zed/settings.json
+.grok/config.toml
+.cursor/mcp.json

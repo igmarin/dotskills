@@ -1,0 +1,263 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# dotskills — one configuration flow (skills + tools)
+#
+# Interactive (gum): run with no command in a terminal. One menu for both
+# jobs: skill extras, which tools, which repos. Then skills run, then tools.
+#
+# Flags still work for scripts and CI:
+#   ./bin/dotskills skills [install-skills flags]
+#   ./bin/dotskills tools  [setup-ai-tools flags]
+#   ./bin/dotskills all    [setup-ai-tools flags]  # skills defaults, then tools
+#   ./bin/dotskills --no-gum [all|skills|tools] …
+# ==============================================================================
+set -euo pipefail
+
+# shellcheck source=lib/paths.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/paths.sh"
+ROOT="$(cd "$(script_dir_of "${BASH_SOURCE[0]}")/.." && pwd)"
+SKILLS="$ROOT/bin/install-skills.sh"
+TOOLS="$ROOT/bin/setup-ai-tools.sh"
+SKIP_GUM=false
+
+usage() {
+  cat <<'EOF'
+dotskills — one configuration flow for skills and local AI tools
+
+Interactive (gum):
+  ./bin/dotskills
+  ./bin/dotskills /path/to/Projects
+
+Commands:
+  skills [flags]   owned skill clones + personal skills/
+  tools  [flags]   Serena / CodeGraph / Graphify
+  all    [flags]   skills (defaults), then tools
+                   --dry-run is passed to skills and stripped from tools
+
+  --no-gum         skip the TUI even in a terminal
+EOF
+}
+
+want_interactive() {
+  [ "$SKIP_GUM" != true ] && [ -t 0 ] && [ -t 1 ]
+}
+
+install_gum_and_stop() {
+  if ! command -v brew >/dev/null 2>&1; then
+    echo "[!] Homebrew not found; cannot install gum."
+    echo "    Install gum yourself (https://github.com/charmbracelet/gum) and re-run."
+    exit 1
+  fi
+  echo "[*] Installing gum via Homebrew..."
+  brew install gum
+  echo ""
+  echo "[✓] gum installed. Re-run for the interactive menu:"
+  echo "    $0"
+  exit 0
+}
+
+ask_install_gum_or_continue() {
+  echo ""
+  echo "[!] gum is not installed. The interactive menu needs it."
+  echo "    1) Install gum (brew install gum), then stop — re-run for the TUI"
+  echo "    2) Continue without gum (skills defaults, no tools)"
+  local ans=""
+  while true; do
+    printf "Choose 1 or 2: "
+    read -r ans || exit 1
+    case "$ans" in
+      1) install_gum_and_stop ;;
+      2)
+        echo "[*] Continuing without gum — skills defaults only."
+        exec "$SKILLS"
+        ;;
+      *) echo "    Please enter 1 or 2." ;;
+    esac
+  done
+}
+
+has_line() {
+  local haystack="$1" needle="$2"
+  case $'\n'"$haystack"$'\n' in *$'\n'"$needle"$'\n'*) return 0 ;; esac
+  return 1
+}
+
+is_project_dir() {
+  local dir="${1%/}"
+  [ -d "$dir/.git" ] || [ -f "$dir/.serena/project.yml" ] || [ -f "$dir/Cargo.toml" ] || [ -f "$dir/Gemfile" ] || [ -f "$dir/package.json" ]
+}
+
+list_child_repo_names() {
+  local parent="${1%/}"
+  local d name
+  for d in "$parent"/*/; do
+    [ -d "$d" ] || continue
+    name="$(basename "${d%/}")"
+    [[ "$name" == .* ]] && continue
+    printf '%s\n' "$name"
+  done
+}
+
+run_unified_gum() {
+  local scan_root="$1"
+  local jobs extras tools_sel selected_names name
+  local run_skills=false run_tools=false
+  local with_community=false with_elixir=false with_rs_guard=false
+  local run_serena=true run_codegraph=true run_graphify=true
+  local force=false auto_install=true
+  local -a repo_names=() selected_repos=() skill_args=() tool_args=(--no-gum)
+
+  jobs="$(gum choose --no-limit \
+    --header "What to configure? (space to toggle, enter to confirm)" \
+    "Skills (owned repos + personal)" \
+    "Tools (Serena / CodeGraph / Graphify)")" || exit 1
+  [ -n "$jobs" ] || { echo "[!] Nothing selected. Exiting."; exit 1; }
+  has_line "$jobs" "Skills (owned repos + personal)" && run_skills=true
+  has_line "$jobs" "Tools (Serena / CodeGraph / Graphify)" && run_tools=true
+
+  if $run_skills; then
+    extras="$(gum choose --no-limit \
+      --header "Skill extras? (none is fine — space to toggle)" \
+      "Community collections (npx --all)" \
+      "Elixir Phoenix skills (work)" \
+      "setup-rs-guard (opt-in)")" || extras=""
+    has_line "$extras" "Community collections (npx --all)" && with_community=true
+    has_line "$extras" "Elixir Phoenix skills (work)" && with_elixir=true
+    has_line "$extras" "setup-rs-guard (opt-in)" && with_rs_guard=true
+  fi
+
+  if $run_tools; then
+    tools_sel="$(gum choose --no-limit \
+      --header "Which tools? (space to toggle, enter to confirm)" \
+      Serena CodeGraph Graphify)" || exit 1
+    [ -n "$tools_sel" ] || { echo "[!] No tools selected. Exiting."; exit 1; }
+    run_serena=false
+    run_codegraph=false
+    run_graphify=false
+    has_line "$tools_sel" Serena && run_serena=true
+    has_line "$tools_sel" CodeGraph && run_codegraph=true
+    has_line "$tools_sel" Graphify && run_graphify=true
+
+    if gum confirm --default=false "Force rebuild CodeGraph / Graphify?"; then
+      force=true
+    fi
+    if gum confirm --default=true "Install missing tools if they are not on PATH?"; then
+      auto_install=true
+    else
+      auto_install=false
+    fi
+
+    scan_root="${scan_root%/}"
+    if is_project_dir "$scan_root"; then
+      selected_repos=("$scan_root")
+    else
+      while IFS= read -r name; do
+        [ -n "$name" ] && repo_names+=("$name")
+      done < <(list_child_repo_names "$scan_root")
+      if [ "${#repo_names[@]}" -eq 0 ]; then
+        echo "[!] No project folders found in $scan_root"
+        exit 1
+      fi
+      selected_names="$(gum choose --no-limit \
+        --header "Which repos to configure? (space to toggle, enter to confirm)" \
+        "${repo_names[@]}")" || exit 1
+      [ -n "$selected_names" ] || { echo "[!] No repos selected. Exiting."; exit 1; }
+      while IFS= read -r name; do
+        [ -n "$name" ] && selected_repos+=("$scan_root/$name")
+      done <<< "$selected_names"
+    fi
+  fi
+
+  if $run_skills; then
+    $with_community && skill_args+=(--with-community)
+    $with_elixir && skill_args+=(--with=elixir-phoenix-skills)
+    $with_rs_guard && skill_args+=(--with-rs-guard)
+    echo ""
+    echo "==> skills"
+    "$SKILLS" "${skill_args[@]+"${skill_args[@]}"}"
+  fi
+
+  if $run_tools; then
+    $run_serena || tool_args+=(--skip-serena)
+    $run_codegraph || tool_args+=(--skip-codegraph)
+    $run_graphify || tool_args+=(--skip-graphify)
+    $force && tool_args+=(--force)
+    $auto_install || tool_args+=(--no-install)
+    local repo
+    for repo in "${selected_repos[@]}"; do
+      tool_args+=(--repo "$repo")
+    done
+    echo ""
+    echo "==> tools"
+    "$TOOLS" "${tool_args[@]}"
+  fi
+}
+
+# --- args ---
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-gum) SKIP_GUM=true; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) POSITIONAL+=("$1"); shift ;;
+  esac
+done
+set -- "${POSITIONAL[@]+"${POSITIONAL[@]}"}"
+
+cmd="${1:-}"
+scan_hint=""
+if [ -n "$cmd" ] && [ -d "$cmd" ] && [[ "$cmd" != skills && "$cmd" != tools && "$cmd" != all ]]; then
+  scan_hint="$(cd "$cmd" && pwd)"
+  cmd=""
+  shift || true
+elif [ -n "$cmd" ]; then
+  shift || true
+fi
+
+case "$cmd" in
+  skills)
+    exec "$SKILLS" "$@"
+    ;;
+  tools)
+    if $SKIP_GUM; then
+      exec "$TOOLS" --no-gum "$@"
+    fi
+    exec "$TOOLS" "$@"
+    ;;
+  all)
+    skill_flags=()
+    tool_flags=()
+    $SKIP_GUM && tool_flags+=(--no-gum)
+    for a in "$@"; do
+      case "$a" in
+        --dry-run|--dry-run=true) skill_flags+=(--dry-run) ;;
+        --dry-run=false) ;;  # Explicitly ignore
+        *) tool_flags+=("$a") ;;
+      esac
+    done
+    if [ "${#skill_flags[@]}" -gt 0 ]; then
+      echo "note: --dry-run applies to skills; it is not passed to tools"
+    fi
+    echo "==> skills (owned repos + generic personal skills)"
+    "$SKILLS" "${skill_flags[@]+"${skill_flags[@]}"}"
+    echo ""
+    echo "==> tools"
+    exec "$TOOLS" "${tool_flags[@]+"${tool_flags[@]}"}"
+    ;;
+  "")
+    if want_interactive; then
+      if command -v gum >/dev/null 2>&1; then
+        run_unified_gum "${scan_hint:-$(dirname "$ROOT")}"
+      else
+        ask_install_gum_or_continue
+      fi
+    else
+      usage
+    fi
+    ;;
+  *)
+    echo "Unknown command: $cmd" >&2
+    usage >&2
+    exit 1
+    ;;
+esac
