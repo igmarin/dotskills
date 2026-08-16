@@ -103,7 +103,7 @@ cd dotskills
 - `./bin/dotskills tools [flags]` → `bin/setup-ai-tools.sh`
 - `./bin/dotskills all [flags]` → skills (defaults), then tools
 
-`--dry-run` on `all` is passed to both skills and tools. Tools receive skill flags like `--repo` and `--npx`, and tool flags like `--provider` and `--model` for Graphify.
+`--dry-run` on `all` is passed to both skills and tools. On `all`, `--repo` and `--npx` go to `install-skills.sh` (when they are valid slugs), and `--provider`, `--model`, `--skip-*`, `--*-only`, and the target path go to `setup-ai-tools.sh`.
 
 This will:
 
@@ -137,7 +137,7 @@ Re-running is safe. It pulls the latest from each source and re-copies. It does 
 
 ```bash
 ./install.sh --dry-run
-./bin/dotskills all --dry-run --npx owner/collection --provider openai --model gpt-5.6 .
+./bin/dotskills all --dry-run --npx owner/collection --provider openai --model gpt-4o .
 ```
 
 Shows what would be installed and what tools would do without changing files.
@@ -189,7 +189,7 @@ ln -sfn "$PWD/bin/setup-ai-tools.sh" "$(dirname "$PWD")/setup-ai-tools.sh"
 ../setup-ai-tools.sh /path/to/a/repo
 ```
 
-Interactive (gum): run with no mode flags in a terminal. Flags still work for scripts and CI (`--no-gum`, `--no-install`, `--dry-run`, `--force`, `--serena-only`, `--codegraph-only`, `--graphify-only`, `--provider <name>`, `--model <name>`).
+Interactive (gum): run with no mode flags in a terminal. Flags still work for scripts and CI (`--no-gum`, `--no-install`, `--dry-run`, `--force`, `--serena-only`, `--codegraph-only`, `--graphify-only`, `--skip-serena`, `--skip-codegraph`, `--skip-graphify`, `--provider <name>`, `--model <name>`).
 
 **Graphify extra:** `uv tool install --force --reinstall "graphifyy[mcp,openai]"`. DeepSeek extract needs the `openai` extra.
 
@@ -214,7 +214,9 @@ Interactive (gum): run with no mode flags in a terminal. Flags still work for sc
 5. Update the README table above if you keep the same layout.
 
 `bin/install-skills.sh` (and the `./install.sh` shim) needs `git`. `--npx owner/repo` also needs `npx`.
-`bin/setup-ai-tools.sh` needs `uv` (for Serena/Graphify) and `npm` (for CodeGraph). `bin/dotskills` uses `gum` for the interactive menu.
+`bin/setup-ai-tools.sh` needs `uv` (for Serena/Graphify) and `npm` (for CodeGraph).
+`bin/dotskills` and `bin/install-skills.sh` need `python3` (3.11+ or `tomli` installed) to read `dotskills.toml`; if Python is missing, they fall back to the hard-coded defaults.
+`bin/dotskills` uses `gum` for the interactive menu.
 
 ## How it works
 
@@ -279,6 +281,7 @@ dotskills/
 │   ├── dotskills                  # One flow: gum TUI, or skills | tools | all
 │   ├── install-skills.sh          # Owned skill clones + personal skills/
 │   ├── setup-ai-tools.sh          # Thin dispatcher: flags, lib calls, repo loop
+│   ├── run-tests.sh               # Local test runner
 │   └── lib/
 │       ├── common.sh              # Shared log, run, add_if_missing, valid_slug
 │       ├── config.sh              # dotskills.toml / ~/.dotskills/config.toml loader
@@ -303,7 +306,6 @@ dotskills/
 │   └── SOURCES.md
 ├── .github/workflows/ci.yml       # GitHub Actions CI
 ├── .pre-commit-config.yaml        # Optional pre-commit hook
-├── bin/run-tests.sh               # Local test runner
 ├── test-validation.sh             # Unit and integration tests
 └── README.md
 ```

@@ -63,10 +63,11 @@ declare -a REPO_OVERRIDES=()
 declare -a NPX_OVERRIDES=()
 
 # Load repo and user config; hardcoded defaults are the fallback.
-load_dotskills_config "$DOTSKILLS_DIR"
+load_dotskills_config "$DOTSKILLS_DIR" || true
 
 # Default: repos you author. Elixir is opt-in. Community is npx, not clone.
 if [ "${#OWNED_REPOS[@]}" -eq 0 ]; then
+  # These mirror `repos.owned` in dotskills.toml. Keep them in sync.
   OWNED_REPOS=(
     "igmarin/agnostic-planning-skills|https://github.com/igmarin/agnostic-planning-skills.git|skills"
     "igmarin/ruby-core-skills|https://github.com/igmarin/ruby-core-skills.git|skills"
@@ -76,6 +77,7 @@ fi
 
 # Default npx skill collections (shown pre-selected in the TUI as recommended).
 if [ "${#NPX_COMMUNITY[@]}" -eq 0 ]; then
+  # These mirror `npx.community` in dotskills.toml. Keep them in sync.
   NPX_COMMUNITY=(
     "igmarin/agnostic-planning-skills"
     "igmarin/ruby-core-skills"

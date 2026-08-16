@@ -297,6 +297,7 @@ echo "Testing bin/dotskills all --dry-run side effects..."
 echo ""
 
 # Test: bin/dotskills all --dry-run must not write any files.
+# This relies on dry-run staying network-free (no git fetch, gh, or ls-remote).
 test_count=$((test_count + 1))
 echo "Test 22: dry-run all produces no side effects"
 DRY_TMP="$(mktemp -d)"
@@ -409,16 +410,16 @@ chmod +x "$RULES_TMP/home/bin/grok"
 if (
   export HOME="$RULES_TMP/home"
   export PATH="$RULES_TMP/home/bin:/usr/bin:/bin"
-  "$SCRIPT_DIR/bin/setup-ai-tools.sh" --no-install --no-gum --skip-serena --skip-codegraph --skip-graphify --provider openai --model gpt-5.6 "$RULES_TMP/repo" >/dev/null 2>&1
+  "$SCRIPT_DIR/bin/setup-ai-tools.sh" --no-install --no-gum --skip-serena --skip-codegraph --skip-graphify --provider openai --model gpt-4o "$RULES_TMP/repo" >/dev/null 2>&1
   if [ -f "$RULES_TMP/repo/.grok/rules/code-intelligence.md" ] \
      && grep -q "openai" "$RULES_TMP/repo/.grok/rules/code-intelligence.md" \
-     && grep -q "gpt-5.6" "$RULES_TMP/repo/.grok/rules/code-intelligence.md" \
+     && grep -q "gpt-4o" "$RULES_TMP/repo/.grok/rules/code-intelligence.md" \
      && [ -f "$RULES_TMP/repo/.clinerules" ] \
      && grep -q "openai" "$RULES_TMP/repo/.clinerules" \
-     && grep -q "gpt-5.6" "$RULES_TMP/repo/.clinerules"; then
+     && grep -q "gpt-4o" "$RULES_TMP/repo/.clinerules"; then
     exit 0
   else
-    echo "  Generated rules did not contain openai / gpt-5.6" >&2
+    echo "  Generated rules did not contain openai / gpt-4o" >&2
     exit 1
   fi
 ); then
@@ -478,6 +479,54 @@ else
   fail_count=$((fail_count + 1))
 fi
 rm -rf "$CONFIG_TMP"
+
+echo ""
+echo "Testing setup-ai-tools flag parsing..."
+echo ""
+
+# Test: setup-ai-tools.sh rejects --npx because it is a skill-install flag.
+test_count=$((test_count + 1))
+echo "Test 26: setup-ai-tools.sh rejects --npx"
+NPX_TMP="$(mktemp -d)"
+mkdir -p "$NPX_TMP/repo"
+( cd "$NPX_TMP/repo" && git init -q )
+if (
+  "$SCRIPT_DIR/bin/setup-ai-tools.sh" --no-install --no-gum --skip-serena --skip-codegraph --skip-graphify --npx owner/repo "$NPX_TMP/repo" >/dev/null 2>&1
+); then
+  echo "  FAIL (should have exited with an error)" >&2
+  fail_count=$((fail_count + 1))
+else
+  echo "  PASS"
+  pass_count=$((pass_count + 1))
+fi
+rm -rf "$NPX_TMP"
+
+echo ""
+echo "Testing config loader fallback..."
+echo ""
+
+# Test: load_dotskills_config handles a malformed dotskills.toml gracefully.
+test_count=$((test_count + 1))
+echo "Test 27: malformed dotskills.toml falls back without crashing"
+MALFORMED_TMP="$(mktemp -d)"
+echo 'this is not [ valid toml' > "$MALFORMED_TMP/dotskills.toml"
+if (
+  . "$SCRIPT_DIR/bin/lib/config.sh"
+  load_dotskills_config "$MALFORMED_TMP"
+  if [ "${#OWNED_REPOS[@]}" -eq 0 ] && [ "${#NPX_COMMUNITY[@]}" -eq 0 ]; then
+    exit 0
+  else
+    echo "  OWNED_REPOS=${OWNED_REPOS[*]}; NPX_COMMUNITY=${NPX_COMMUNITY[*]}" >&2
+    exit 1
+  fi
+); then
+  echo "  PASS"
+  pass_count=$((pass_count + 1))
+else
+  echo "  FAIL"
+  fail_count=$((fail_count + 1))
+fi
+rm -rf "$MALFORMED_TMP"
 
 echo ""
 echo "=========================================="

@@ -17,9 +17,9 @@ for script in \
   "$ROOT/bin/install-skills.sh" \
   "$ROOT/bin/setup-ai-tools.sh" \
   "$ROOT/bin/lib/"*.sh \
+  "$ROOT/bin/run-tests.sh" \
   "$ROOT/install.sh" \
-  "$ROOT/test-validation.sh" \
-  "$ROOT/bin/run-tests.sh"
+  "$ROOT/test-validation.sh"
 do
   if ! bash -n "$script"; then
     echo "[✗] Syntax error in $script" >&2

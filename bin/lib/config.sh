@@ -21,7 +21,7 @@ load_dotskills_config() {
   NPX_COMMUNITY=()
 
   local raw
-  raw=$(PYTHONDONTWRITEBYTECODE=1 python3 - "$repo_config" "$user_config" <<'PY'
+  raw=$(PYTHONDONTWRITEBYTECODE=1 python3 - "$repo_config" "$user_config" 2>/dev/null <<'PY'
 import os
 import sys
 
@@ -74,4 +74,8 @@ PY
       npx)   NPX_COMMUNITY+=("$value") ;;
     esac
   done <<< "$raw"
+
+  # Always return 0. If python3 or the TOML parser is missing, we fall back
+  # to the hard-coded defaults that callers supply afterwards.
+  return 0
 }

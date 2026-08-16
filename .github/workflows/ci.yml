@@ -17,5 +17,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
 
+      - name: Run shellcheck
+        run: |
+          shellcheck \
+            bin/dotskills \
+            bin/install-skills.sh \
+            bin/setup-ai-tools.sh \
+            bin/lib/*.sh \
+            bin/run-tests.sh \
+            install.sh \
+            test-validation.sh
+
       - name: Run test suite
         run: ./bin/run-tests.sh

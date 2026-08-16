@@ -38,7 +38,7 @@
 #   ./bin/setup-ai-tools.sh /path/to/Projects         # Configure all repos in folder
 #   ./bin/setup-ai-tools.sh /path/to/Projects/my-repo # Configure single repo
 #   ./bin/setup-ai-tools.sh --force                   # Graphify re-extract; CodeGraph sync
-#   ./bin/setup-ai-tools.sh --provider openai --model gpt-5.6
+#   ./bin/setup-ai-tools.sh --provider openai --model gpt-4o
 #                                                     # Use an OpenAI-compatible model
 #   ./bin/setup-ai-tools.sh --serena-only             # Run only Serena setup
 #   ./bin/setup-ai-tools.sh --codegraph-only          # Run only CodeGraph setup
@@ -46,6 +46,7 @@
 #   ./bin/setup-ai-tools.sh --no-install              # Do not auto-install missing tools
 #   ./bin/setup-ai-tools.sh --dry-run                 # Show what would happen without writing files
 #   ./bin/setup-ai-tools.sh --skip-serena             # Do not run Serena
+#   ./bin/setup-ai-tools.sh --skip-codegraph          # Do not run CodeGraph
 #   ./bin/setup-ai-tools.sh --skip-graphify           # Do not run Graphify
 #   ./bin/setup-ai-tools.sh --repo /path/to/repo      # Repeatable; target repo
 # ==============================================================================
@@ -134,6 +135,10 @@ while [[ $# -gt 0 ]]; do
       fi
       SELECTED_REPOS+=("${2%/}")
       shift 2
+      ;;
+    --npx)
+      echo "Error: --npx is for installing skill collections; use './bin/dotskills all' or './bin/install-skills.sh' instead." >&2
+      exit 1
       ;;
     -h|--help)
       sed -ne '/^#/!q;s/^# //;2,$p' "$0"

@@ -23,8 +23,9 @@ set -euo pipefail
 ROOT="$(cd "$(script_dir_of "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Load repo/user config for npx defaults, falling back to the hardcoded list.
-load_dotskills_config "$ROOT"
+load_dotskills_config "$ROOT" || true
 if [ "${#NPX_COMMUNITY[@]}" -eq 0 ]; then
+  # These mirror `npx.community` in dotskills.toml. Keep them in sync.
   NPX_COMMUNITY=(
     "igmarin/agnostic-planning-skills"
     "igmarin/ruby-core-skills"
