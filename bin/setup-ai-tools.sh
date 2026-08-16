@@ -615,7 +615,8 @@ fi
 # ------------------------------------------------------------------------------
 # 2. Update Global Gitignore (~/.gitignore_global)
 # ------------------------------------------------------------------------------
-GITIGNORE_GLOBAL="$HOME/.gitignore_global"
+# Preserve user's existing gitignore if they have one configured
+GITIGNORE_GLOBAL="$(git config --global core.excludesfile 2>/dev/null || echo "$HOME/.gitignore_global")"
 touch "$GITIGNORE_GLOBAL"
 git config --global core.excludesfile "$GITIGNORE_GLOBAL"
 

@@ -124,7 +124,7 @@ Sections to include (adapt section 3 for the repo's domain):
 
 Use `metadata.version` **must** (not "should") — rs-guard treats "must" as blocking.
 
-v1.6.0 prompt heading: prefer `CriticalIssues:` over `CriticalBugs:` (the old alias still works and warns).
+v1.6.0 prompt heading: use `CriticalIssues:` consistently (the old `CriticalBugs:` alias has been removed).
 
 ---
 
@@ -349,7 +349,7 @@ These must already be set on the repo before the workflow runs:
 | `\|\| true` to swallow rs-guard failures | Use `\|\| echo "[rs-guard] ..."` to surface the message |
 | `metadata.version` "should" in prompt | Use "must" — rs-guard treats "should" as suggestion, "must" as blocking |
 | Empty PR review comment after "CI passed" | rs-guard posts APPROVE via review API, not as a comment — this is correct |
-| `CriticalBugs:` heading | Prefer `CriticalIssues:` (v1.6.0); old alias warns |
+| `CriticalBugs:` heading | Use `CriticalIssues:` (v1.6.0); old alias removed |
 
 ---
 

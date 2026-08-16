@@ -63,11 +63,11 @@ assert_under_sources() {
 }
 
 # Override config variables for testing
-SOURCES_DIR="/tmp/test-dotskills-sources"
-mkdir -p "$SOURCES_DIR"
+SOURCES_DIR="$(mktemp -d)"
+OTHER_PATH="$(mktemp -d)"
 
 # Ensure cleanup on exit
-trap 'rm -rf "$SOURCES_DIR" "/tmp/other-path"' EXIT
+trap 'rm -rf "$SOURCES_DIR" "$OTHER_PATH"' EXIT
 
 test_count=0
 pass_count=0
