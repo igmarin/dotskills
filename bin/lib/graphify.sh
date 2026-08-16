@@ -6,6 +6,7 @@
 #   GRAPHIFY_BIN
 #   GRAPHIFY_MCP_BIN
 #   FORCE_REBUILD
+#   RUN_GRAPHIFY
 #   DEEPSEEK_API_KEY
 
 # shellcheck source=lib/common.sh

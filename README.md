@@ -77,7 +77,7 @@ npx skills install -g dietrichgebert/ponytail --all
 
 | Skill | What it does |
 |-------|-------------|
-| [`setup-rs-guard`](skills/setup-rs-guard/SKILL.md) *(optional)* | Runbook for adding rs-guard **v1.6.0** / **`deepseek-v4-pro`** to a repo. Install only with `./install.sh --with-rs-guard`. |
+| [`setup-rs-guard`](skills/setup-rs-guard/SKILL.md) *(optional)* | Runbook for adding rs-guard **v1.7.0** / **`deepseek-v4-pro`** to a repo. Install only with `./install.sh --with-rs-guard`. |
 
 ## Install
 
@@ -209,9 +209,14 @@ dotskills/
 ├── bin/
 │   ├── dotskills                  # One flow: gum TUI, or skills | tools | all
 │   ├── install-skills.sh          # Owned skill clones + personal skills/
-│   ├── setup-ai-tools.sh          # Serena / CodeGraph / Graphify
+│   ├── setup-ai-tools.sh          # Thin dispatcher: flags, lib calls, repo loop
 │   └── lib/
-│       └── paths.sh               # Shared script_dir_of (symlink-safe)
+│       ├── common.sh              # Shared log, run, add_if_missing helpers
+│       ├── paths.sh               # script_dir_of (symlink-safe)
+│       ├── detect-tools.sh        # Tool resolution + optional install
+│       ├── codegraph.sh           # init / skip / sync
+│       ├── graphify.sh            # Extra check, extract, .graphifyignore
+│       └── write-mcp.sh           # Global + per-repo MCP / gitignore / rules
 ├── install.sh                     # Shim → bin/install-skills.sh
 ├── skills/                        # Personal skills (shipped with this repo)
 │   └── setup-rs-guard/            # Optional — not copied unless --with-rs-guard
@@ -219,8 +224,8 @@ dotskills/
 ├── .graphifyignore                # Used by Graphify in this repo (script writes the same name elsewhere)
 ├── docs/
 │   ├── PLAN-setup-ai-tools-and-refresh.md
-│   ├── PLAN-split-setup-scripts.md      # later: extract setup-ai-tools into bin/lib/
-│   └── PROMPT-split-setup-scripts.md    # paste this in the next window
+│   ├── PLAN-split-setup-scripts.md      # Unified refactor plan
+│   └── PROMPT-split-setup-scripts.md    # Paste this in the next window
 └── README.md
 ```
 

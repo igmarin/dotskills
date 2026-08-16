@@ -3,7 +3,7 @@
 # Usage: . "$LIB/write-mcp.sh"
 #
 # Globals this file reads (caller must set or the function computes):
-#   SERENA_BIN, CODEGRAPH_BIN, GRAPHIFY_MCP_BIN, GROK_BIN
+#   SERENA_BIN, CODEGRAPH_BIN, GRAPHIFY_BIN, GRAPHIFY_MCP_BIN, GROK_BIN
 #   GITIGNORE_GLOBAL (computed by setup_global_gitignore)
 
 # shellcheck source=lib/common.sh
