@@ -8,11 +8,13 @@
 # This function is safe for `set -e` callers: it never exits and always
 # returns 0. On any failure (missing python3, missing TOML parser, malformed
 # file) it falls back to empty arrays and lets callers use their defaults.
+# Python diagnostics are not suppressed, so a missing interpreter or broken
+# TOML file is still visible to the user.
 
 # shellcheck source=lib/common.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
-# Load dotskills configuration from the repo root and the user's home directory.
+# Load dotskills configuration from the repo root and the user home directory.
 # $1 = repo root directory (where dotskills.toml is expected)
 # Sets: OWNED_REPOS, NPX_COMMUNITY
 load_dotskills_config() {
@@ -36,11 +38,12 @@ except ModuleNotFoundError:
 
 
 def load(path):
-    if not os.path.exists(path):
-        return {}
     try:
         with open(path, "rb") as f:
             return tomllib.load(f)
+    except FileNotFoundError:
+        # Optional file is missing. Ignore silently.
+        return {}
     except Exception as e:
         # Single-line, safe for the | delimiter the shell expects.
         msg = str(e).replace("\n", " ").replace("|", "/")
@@ -70,7 +73,7 @@ for v in npx:
     print(f"npx|{v}")
 PY
 ); then
-    # Missing python3 or unexpected crash: silently fall back.
+    # Missing python3 or unexpected crash: fall back.
     raw=""
   fi
 

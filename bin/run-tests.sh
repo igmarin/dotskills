@@ -37,6 +37,8 @@ else
 fi
 
 # 3. Run shellcheck if it is installed.
+# -S warning blocks only warning/error findings, not style/info, so CI stays
+# green for cosmetic issues while still catching real problems.
 if command -v shellcheck >/dev/null 2>&1; then
   echo "[*] Running shellcheck..."
   if shellcheck -S warning \

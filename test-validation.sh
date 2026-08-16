@@ -492,7 +492,7 @@ mkdir -p "$NPX_TMP/repo"
 ( cd "$NPX_TMP/repo" && git init -q )
 NPX_ERR="$NPX_TMP/err.txt"
 if (
-  "$SCRIPT_DIR/bin/setup-ai-tools.sh" --no-install --no-gum --skip-serena --skip-codegraph --skip-graphify --npx owner/repo "$NPX_TMP/repo" 2>"$NPX_ERR"
+  "$SCRIPT_DIR/bin/setup-ai-tools.sh" --no-install --no-gum --skip-serena --skip-codegraph --skip-graphify --npx owner/repo "$NPX_TMP/repo" >/dev/null 2>"$NPX_ERR"
 ); then
   echo "  FAIL (should have exited with an error)" >&2
   fail_count=$((fail_count + 1))
@@ -534,6 +534,43 @@ else
   fail_count=$((fail_count + 1))
 fi
 rm -rf "$MALFORMED_TMP"
+
+echo ""
+echo "Testing config loader silence on missing files..."
+echo ""
+
+# Test: missing optional user config is ignored without warning.
+test_count=$((test_count + 1))
+echo "Test 28: missing optional config files produce no warning"
+MISSING_TMP="$(mktemp -d)"
+MISSING_HOME="$MISSING_TMP/home"
+mkdir -p "$MISSING_HOME"
+MISSING_ERR="$MISSING_TMP/err.txt"
+if (
+  export HOME="$MISSING_HOME"
+  . "$SCRIPT_DIR/bin/lib/config.sh"
+  load_dotskills_config "$MISSING_TMP" 2>"$MISSING_ERR"
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    echo "  load_dotskills_config exited with status $status" >&2
+    exit 1
+  fi
+  if [ "${#OWNED_REPOS[@]}" -eq 0 ] \
+     && [ "${#NPX_COMMUNITY[@]}" -eq 0 ] \
+     && [ ! -s "$MISSING_ERR" ]; then
+    exit 0
+  else
+    echo "  OWNED_REPOS=${OWNED_REPOS[*]}; NPX_COMMUNITY=${NPX_COMMUNITY[*]}; stderr=$(cat "$MISSING_ERR")" >&2
+    exit 1
+  fi
+); then
+  echo "  PASS"
+  pass_count=$((pass_count + 1))
+else
+  echo "  FAIL"
+  fail_count=$((fail_count + 1))
+fi
+rm -rf "$MISSING_TMP"
 
 echo ""
 echo "=========================================="
