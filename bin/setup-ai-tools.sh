@@ -19,7 +19,6 @@
 #   CodeGraph   npm install -g @colbymchenry/codegraph
 #               init only if .codegraph is missing; skip if it exists;
 #               --force + existing index → codegraph sync (not init, not index)
-#   Repomix     brew install repomix, else npm install -g repomix
 #   gum         brew install gum   (TUI only; asked if missing, then stop)
 #
 # Interactive (gum): run with no mode flags in a terminal. Pick tools and
@@ -294,7 +293,6 @@ CODEGRAPH_BIN=""
 GRAPHIFY_BIN=""
 GRAPHIFY_MCP_BIN=""
 GROK_BIN=""
-REPOMIX_BIN=""
 
 first_existing() {
   local candidate
@@ -332,12 +330,6 @@ resolve_tool_bins() {
   GROK_BIN="$(first_existing \
     "$(command -v grok 2>/dev/null || true)" \
     "$HOME/.local/bin/grok" \
-    || true)"
-
-  REPOMIX_BIN="$(first_existing \
-    "$(command -v repomix 2>/dev/null || true)" \
-    "/opt/homebrew/bin/repomix" \
-    "$HOME/.local/bin/repomix" \
     || true)"
 }
 
@@ -408,34 +400,6 @@ install_codegraph() {
   return 1
 }
 
-install_repomix() {
-  echo "[*] Installing Repomix..."
-  if command -v brew >/dev/null 2>&1; then
-    if brew install repomix; then
-      hash -r 2>/dev/null || true
-      resolve_tool_bins
-      if [ -n "$REPOMIX_BIN" ]; then
-        echo "[✓] Repomix installed via Homebrew: $REPOMIX_BIN"
-        return 0
-      fi
-    fi
-  fi
-  local npm_bin=""
-  npm_bin="$(command -v npm 2>/dev/null || true)"
-  if [ -n "$npm_bin" ]; then
-    if "$npm_bin" install -g repomix; then
-      hash -r 2>/dev/null || true
-      resolve_tool_bins
-      if [ -n "$REPOMIX_BIN" ]; then
-        echo "[✓] Repomix installed via npm: $REPOMIX_BIN"
-        return 0
-      fi
-    fi
-  fi
-  echo "[!] Could not install Repomix (need Homebrew or npm)."
-  return 1
-}
-
 ensure_missing_tools() {
   if [ "$AUTO_INSTALL" != true ]; then
     echo "[*] Auto-install disabled (--no-install)."
@@ -446,7 +410,6 @@ ensure_missing_tools() {
     install_graphify || true
   fi
   [ -z "$CODEGRAPH_BIN" ] && install_codegraph || true
-  [ -z "$REPOMIX_BIN" ] && install_repomix || true
 }
 
 resolve_tool_bins
@@ -520,14 +483,14 @@ upsert_grok_mcp_toml() {
   local config_path="$1"
   local repo_path="${2:-}"
   python3 - "$config_path" "$repo_path" \
-    "${CODEGRAPH_BIN:-}" "${GRAPHIFY_MCP_BIN:-}" "${SERENA_BIN:-}" "${REPOMIX_BIN:-}" << 'PY'
+    "${CODEGRAPH_BIN:-}" "${GRAPHIFY_MCP_BIN:-}" "${SERENA_BIN:-}" << 'PY'
 import re
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
 repo = sys.argv[2].rstrip("/")
-codegraph, graphify_mcp, serena, repomix = sys.argv[3:7]
+codegraph, graphify_mcp, serena = sys.argv[3:6]
 
 servers = []
 if codegraph:
@@ -551,12 +514,6 @@ if serena:
     servers.append(("serena", {
         "command": serena,
         "args": ["start-mcp-server", "--context=claude-code", "--project-from-cwd"],
-        "enabled": True,
-    }))
-if repo and repomix:
-    servers.append(("repomix", {
-        "command": repomix,
-        "args": ["--mcp", "--sandbox", repo],
         "enabled": True,
     }))
 
@@ -603,7 +560,6 @@ echo "[✓] CodeGraph: ${CODEGRAPH_BIN:-NOT FOUND}"
 echo "[✓] Graphify:  ${GRAPHIFY_BIN:-NOT FOUND}"
 echo "[✓] Graph-MCP: ${GRAPHIFY_MCP_BIN:-NOT FOUND}"
 echo "[✓] Grok:      ${GROK_BIN:-NOT FOUND}"
-echo "[✓] Repomix:   ${REPOMIX_BIN:-NOT FOUND}"
 
 ensure_graphify_mcp_extra "$GRAPHIFY_MCP_BIN" || true
 
@@ -685,7 +641,6 @@ add_if_missing ".aider.chat.history.md" "$GITIGNORE_GLOBAL"
 add_if_missing ".aider.input.history" "$GITIGNORE_GLOBAL"
 add_if_missing ".aider.tags.cache.v4/" "$GITIGNORE_GLOBAL"
 add_if_missing "" "$GITIGNORE_GLOBAL"
-add_if_missing "repomix-output.*" "$GITIGNORE_GLOBAL"
 add_if_missing "" "$GITIGNORE_GLOBAL"
 add_if_missing "# MCP config files (machine-local paths; do not commit)" "$GITIGNORE_GLOBAL"
 add_if_missing ".mcp.json" "$GITIGNORE_GLOBAL"
@@ -1099,8 +1054,7 @@ Use these tools before dumping whole files or grepping the tree.
 1. If `.codegraph/` exists, run `codegraph explore "<symbol or question>"` (or the CodeGraph MCP tools).
 2. Use Serena MCP tools (`get_symbols_overview`, `find_symbol`, `find_declaration`, `find_referencing_symbols`, `read_memory`) for LSP-level code navigation and project memory.
 3. If `graphify-out/graph.json` exists, use Graphify (`graphify explain`, `graphify path`, or the Graphify MCP).
-4. For a whole-repo pack, run `repomix` using `repomix.config.json`. Do not commit `repomix-output.*`.
-5. Regenerate Graphify with `graphify extract . --backend deepseek --model deepseek-v4-pro --no-cluster` (DeepSeek is the global LLM). Rust workspaces also pass `--cargo`.
+4. Regenerate Graphify with `graphify extract . --backend deepseek --model deepseek-v4-pro --no-cluster` (DeepSeek is the global LLM). Rust workspaces also pass `--cargo`.
 EOF
 
   # H. Grok project MCP + rules (Grok does not read .cline_mcp_servers.json)
@@ -1116,8 +1070,7 @@ Use these tools before dumping whole files or grepping the tree.
 1. If `.codegraph/` exists, run `codegraph explore "<symbol or question>"` (or the CodeGraph MCP tools).
 2. Use Serena MCP tools (`get_symbols_overview`, `find_symbol`, `find_declaration`, `find_referencing_symbols`, `read_memory`) for LSP-level code navigation and project memory when the Serena server is connected.
 3. If `graphify-out/graph.json` exists, use Graphify (`graphify query`, `graphify explain`, `graphify path`, or the Graphify MCP). Treat codebase questions as graph queries first.
-4. For a whole-repo pack, run `repomix` using `repomix.config.json`. Do not commit `repomix-output.*`.
-5. Regenerate Graphify with `graphify extract . --backend deepseek --model deepseek-v4-pro --no-cluster` (DeepSeek is the global LLM). Rust workspaces also pass `--cargo`.
+4. Regenerate Graphify with `graphify extract . --backend deepseek --model deepseek-v4-pro --no-cluster` (DeepSeek is the global LLM). Rust workspaces also pass `--cargo`.
 EOF
   fi
 

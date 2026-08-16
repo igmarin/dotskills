@@ -1,6 +1,6 @@
 # dotskills
 
-My personal agent skill ecosystem — one installer for skills I author, plus a local script for Serena / CodeGraph / Graphify / Repomix.
+My personal agent skill ecosystem — one installer for skills I author, plus a local script for Serena / CodeGraph / Graphify.
 
 ## What this is
 
@@ -10,7 +10,7 @@ This repo does three things:
 
 1. **Holds my personal skills** — skills that are specific to my setup. These live in `skills/` here. `setup-rs-guard` is optional and is **not** copied on a default `./install.sh`.
 2. **Installs skills I author** — `bin/install-skills.sh` (root `./install.sh` is a shim) clones my repos and copies their `skills/` trees into `~/.agents/skills/`.
-3. **Houses `bin/setup-ai-tools.sh`** — a local (human) installer for Serena, CodeGraph, Graphify, and Repomix. Not a skill.
+3. **Houses `bin/setup-ai-tools.sh`** — a local (human) installer for Serena, CodeGraph, and Graphify. Not a skill.
 
 One configuration flow: `./bin/dotskills`. In a terminal that is **one gum menu** (skills extras + tools + repos), then skills run, then tools. Commands (`skills` / `tools` / `all`) are for scripts and CI.
 
@@ -157,7 +157,7 @@ Removes all skills from `~/.agents/skills/` with a confirmation prompt.
 
 This is a **bash program you run in a terminal**. It is not an agent skill. Do not look for `/setup-ai-tools`.
 
-It installs and configures Serena, CodeGraph, Graphify, and Repomix (MCP configs, global gitignore, optional gum TUI).
+It installs and configures Serena, CodeGraph, and Graphify (MCP configs, global gitignore, optional gum TUI).
 
 Home of the script: `bin/setup-ai-tools.sh` in this repo. Always run that file (or a symlink you create). Do not hardcode a volume or username.
 
@@ -200,7 +200,7 @@ Interactive (gum): run with no mode flags in a terminal. Flags still work for sc
 4. Update the README table above
 
 `bin/install-skills.sh` (and the `./install.sh` shim) needs `git`. `--with-community` also needs `npx`.
-`bin/setup-ai-tools.sh` needs `uv` (for Serena/Graphify), `npm` (for CodeGraph), and optionally `brew` (for Repomix/gum).
+`bin/setup-ai-tools.sh` needs `uv` (for Serena/Graphify), `npm` (for CodeGraph), and optionally `brew` (for gum).
 
 ## Structure
 
@@ -209,7 +209,7 @@ dotskills/
 ├── bin/
 │   ├── dotskills                  # One flow: gum TUI, or skills | tools | all
 │   ├── install-skills.sh          # Owned skill clones + personal skills/
-│   ├── setup-ai-tools.sh          # Serena / CodeGraph / Graphify / Repomix
+│   ├── setup-ai-tools.sh          # Serena / CodeGraph / Graphify
 │   └── lib/
 │       └── paths.sh               # Shared script_dir_of (symlink-safe)
 ├── install.sh                     # Shim → bin/install-skills.sh

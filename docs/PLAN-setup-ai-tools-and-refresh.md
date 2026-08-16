@@ -10,12 +10,12 @@ Source script today: `/Volumes/minimini/Developer/Projects/setup-ai-tools.sh`
 
 ## What we are doing
 
-`setup-ai-tools.sh` is the local installer for Serena, CodeGraph, Graphify,
-and Repomix (gum TUI, MCP configs, global gitignore). It currently sits
+`setup-ai-tools.sh` is the local installer for Serena, CodeGraph, and Graphify
+(gum TUI, MCP configs, global gitignore). It currently sits
 loose in `Developer/Projects/`. This repo (`dotskills`) is the personal
 agent-tooling home. The script belongs here. This repo is public: default install must
 work for a fork that never uses rs-guard. Refresh `setup-rs-guard` to
-**1.6.0** / **`deepseek-v4-pro`**, but ship it as an **opt-in** extra,
+**1.7.0** / **`deepseek-v4-pro`**, but ship it as an **opt-in** extra,
 not something `./install.sh` always copies.
 
 ---

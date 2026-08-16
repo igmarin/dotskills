@@ -87,7 +87,7 @@ Move any helper functions used by multiple tools (e.g., log, warn, ok, run) into
 
 ### 1. Extract detect / install
 
-Move `resolve_tool_bins`, `ensure_uv`, `install_serena`, `install_graphify`, `install_codegraph`, `install_repomix`, `ensure_missing_tools` into `bin/lib/detect-tools.sh`.
+Move `resolve_tool_bins`, `ensure_uv`, `install_serena`, `install_graphify`, `install_codegraph`, `ensure_missing_tools` into `bin/lib/detect-tools.sh`.
 
 **Done when:** `bash -n` on the two files; `./bin/setup-ai-tools.sh --no-gum --no-install .` still prints the same tool-found lines (or `NOT FOUND`) and does not re-`init` CodeGraph if `.codegraph` exists.
 

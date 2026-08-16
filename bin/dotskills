@@ -30,7 +30,7 @@ Interactive (gum):
 
 Commands:
   skills [flags]   owned skill clones + personal skills/
-  tools  [flags]   Serena / CodeGraph / Graphify / Repomix
+  tools  [flags]   Serena / CodeGraph / Graphify
   all    [flags]   skills (defaults), then tools
                    --dry-run is passed to skills and stripped from tools
 
