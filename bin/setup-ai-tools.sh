@@ -141,6 +141,11 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Source shared helpers for the tool lib files
+LIB="$SCRIPT_DIR/lib"
+# shellcheck source=lib/common.sh
+. "$LIB/common.sh"
+
 # gum TUI when we are on a terminal and the caller did not pass mode flags.
 # If gum is missing: install it and stop, or continue with flags/defaults.
 want_interactive() {

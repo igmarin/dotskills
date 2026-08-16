@@ -38,10 +38,13 @@
 
 set -euo pipefail
 
-# ── Config ──────────────────────────────────────────────────────────────────
+# ── Paths and shared helpers ─────────────────────────────────────────────────
 
 # shellcheck source=lib/paths.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/paths.sh"
+# shellcheck source=lib/common.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
+
 DOTSKILLS_DIR="$(cd "$(script_dir_of "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCES_DIR="$HOME/.dotskills/sources"
 TARGET_DIR="$HOME/.agents/skills"
@@ -74,26 +77,6 @@ ELIXIR_REPO="igmarin/elixir-phoenix-skills|https://github.com/igmarin/elixir-pho
 declare -a SOURCE_REPOS=()
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
-
-log()  { echo "  $*"; }
-info() { echo ""; echo "▸ $*"; }
-ok()   { echo "  ✓ $*"; }
-warn() { echo "  ⚠ $*"; }
-
-log_cmd() {
-  if $VERBOSE; then
-    echo "  [verbose] $*"
-  fi
-}
-
-run() {
-  if $DRY_RUN; then
-    echo "  [dry-run] $*"
-    return 0
-  fi
-  log_cmd "$*"
-  "$@"
-}
 
 check_dependencies() {
   local missing=()

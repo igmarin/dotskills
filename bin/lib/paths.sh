@@ -18,16 +18,16 @@ script_dir_of() {
     loop_count=$((loop_count + 1))
     if [ "$loop_count" -gt "$max_loops" ]; then
       echo "Error: circular symlink detected in path resolution" >&2
-      exit 1
+      return 1
     fi
     
     script_dir="$(cd "$(dirname "$script_src")" 2>/dev/null && pwd)" || {
       echo "Error: cannot resolve symlink directory: $script_src" >&2
-      exit 1
+      return 1
     }
     script_src="$(readlink "$script_src" 2>/dev/null)" || {
       echo "Error: cannot read symlink: $script_src" >&2
-      exit 1
+      return 1
     }
     [[ "$script_src" != /* ]] && script_src="$script_dir/$script_src"
   done
