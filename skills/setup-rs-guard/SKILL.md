@@ -6,19 +6,19 @@ description: >
   and GitHub labels/issues/project board. Use when setting up rs-guard on a new repo, or when
   asked to "add AI review", "set up rs-guard", or "mirror the rails-agent-skills review setup".
 metadata:
-  version: 1.6.0
+  version: 1.7.0
 ---
 
 # Setup rs-guard AI Review
 
-Adds rs-guard **v1.6.0** to a repo, mirroring the `rails-agent-skills` reference implementation.
+Adds rs-guard **v1.7.0** to a repo, mirroring the `rails-agent-skills` reference implementation.
 
 This skill is an opt-in personal extra. Forks should not install it unless they pass
 `--with-rs-guard` on `./install.sh`.
 
 ## Quick Reference
 
-- **Binary**: `~/.cargo/bin/rs-guard` (v1.6.0) — also bundled at `bin/rs-guard-{platform}`
+- **Binary**: `~/.cargo/bin/rs-guard` (v1.7.0) — also bundled at `bin/rs-guard-{platform}`
 - **Source**: a local clone of https://github.com/nebulaideas/rs-guard (set `RS_GUARD_SRC` to that directory)
 - **Config**: `.reviewer.toml` — top-level keys from `docs/CONFIGURATION.md`. Optional `[providers.<name>]` (plural).
 - **Model**: DeepSeek **`deepseek-v4-pro`** via `variant = "pro"` (preferred) or `model = "deepseek-v4-pro"`
@@ -66,7 +66,7 @@ cd /PATH/TO/REPO/bin
 shasum -a 256 rs-guard-macos-arm64 rs-guard-linux-x64 > CHECKSUMS.txt
 ```
 
-`CHECKSUMS.txt` must include: SHA-256 of each binary, rs-guard version **1.6.0**, build date, and source repo.
+`CHECKSUMS.txt` must include: SHA-256 of each binary, rs-guard version **1.7.0**, build date, and source repo.
 
 ---
 
@@ -124,7 +124,7 @@ Sections to include (adapt section 3 for the repo's domain):
 
 Use `metadata.version` **must** (not "should") — rs-guard treats "must" as blocking.
 
-v1.6.0 prompt heading: use `CriticalIssues:` consistently (the old `CriticalBugs:` alias has been removed).
+v1.7.0 prompt heading: use `CriticalIssues:` consistently (the old `CriticalBugs:` alias has been removed).
 
 ---
 
@@ -247,7 +247,7 @@ No extra quotes around `command` — just the bare `${CLAUDE_PLUGIN_ROOT}/hooks/
 
 ```
 # rs-guard binaries — SHA-256 checksums
-# Version: 1.6.0
+# Version: 1.7.0
 # Built: YYYY-MM-DD
 # Source: https://github.com/nebulaideas/rs-guard
 
@@ -340,7 +340,7 @@ These must already be set on the repo before the workflow runs:
 | `.reviewer.toml` with `[review]` wrapper | Top-level fields only (`provider`, `variant`/`model`, `temperature`, …) |
 | `.reviewer.toml` with `[provider.deepseek]` (singular) | Invalid. Selector is `provider = "deepseek"`. Overrides go in `[providers.deepseek]` (plural) |
 | Invented circuit-breaker keys | Official: `enabled`, `threshold`, `cooldown_secs` |
-| `model = "deepseek-chat"` | v1.6.0 DeepSeek V4: `variant = "pro"` → `deepseek-v4-pro` (or set `model` to that id) |
+| `model = "deepseek-chat"` | v1.7.0 DeepSeek V4: `variant = "pro"` → `deepseek-v4-pro` (or set `model` to that id) |
 | Hardcoded machine path (`~/Developer/Nebula/rs-guard`, `/Volumes/...`) | Clone https://github.com/nebulaideas/rs-guard and set `RS_GUARD_SRC` |
 | `--provider deepseek` hardcoded in hook | Drop it — rs-guard reads `.reviewer.toml` automatically |
 | Relative `--prompt-file` path in hook | Always use `$REPO_ROOT/.github/review-prompt.md` |
@@ -349,7 +349,7 @@ These must already be set on the repo before the workflow runs:
 | `\|\| true` to swallow rs-guard failures | Use `\|\| echo "[rs-guard] ..."` to surface the message |
 | `metadata.version` "should" in prompt | Use "must" — rs-guard treats "should" as suggestion, "must" as blocking |
 | Empty PR review comment after "CI passed" | rs-guard posts APPROVE via review API, not as a comment — this is correct |
-| `CriticalBugs:` heading | Use `CriticalIssues:` (v1.6.0); old alias removed |
+| `CriticalBugs:` heading | Use `CriticalIssues:` (v1.7.0); old alias removed |
 
 ---
 
