@@ -149,6 +149,8 @@ LIB="$SCRIPT_DIR/lib"
 . "$LIB/detect-tools.sh"
 # shellcheck source=lib/codegraph.sh
 . "$LIB/codegraph.sh"
+# shellcheck source=lib/graphify.sh
+. "$LIB/graphify.sh"
 
 # gum TUI when we are on a terminal and the caller did not pass mode flags.
 # If gum is missing: install it and stop, or continue with flags/defaults.
@@ -307,66 +309,6 @@ resolve_tool_bins
 ensure_missing_tools
 resolve_tool_bins
 
-# graphify-mcp is a uv-tool entry point. The base `graphifyy` install does
-# not include the MCP extra, so Grok's handshake dies with:
-#   ModuleNotFoundError: No module named 'mcp'
-#   Broken pipe (os error 32)
-# DeepSeek extract uses the OpenAI-compatible client; missing `openai`
-# yields: the 'openai' package is required for this backend
-ensure_graphify_mcp_extra() {
-  local mcp_bin="$1"
-  [ -n "$mcp_bin" ] && [ -e "$mcp_bin" ] || return 0
-
-  local shebang mcp_py
-  shebang="$(head -1 "$mcp_bin" 2>/dev/null || true)"
-  mcp_py="${shebang#\#!}"
-  case "$mcp_py" in
-    *[!a-zA-Z0-9/_.@-]*) mcp_py="" ;;
-  esac
-  if [ -z "$mcp_py" ] || [ ! -x "$mcp_py" ]; then
-    if command -v uv >/dev/null 2>&1; then
-      mcp_py="$(uv tool run --from graphifyy python -c 'import sys; print(sys.executable)' 2>/dev/null || true)"
-    fi
-  fi
-  [ -n "$mcp_py" ] || return 0
-
-  local mcp_ok=false openai_ok=false
-  if "$mcp_py" -c "from mcp.server.stdio import stdio_server" >/dev/null 2>&1; then
-    mcp_ok=true
-  fi
-  if "$mcp_py" -c "import openai" >/dev/null 2>&1; then
-    openai_ok=true
-  fi
-  if [ "$mcp_ok" = true ] && [ "$openai_ok" = true ]; then
-    echo "[✓] Graphify MCP + OpenAI extras are installed."
-    return 0
-  fi
-
-  echo "[*] Graphify extras missing — installing graphifyy[mcp,openai]..."
-  if command -v uv >/dev/null 2>&1; then
-    uv tool install --force --reinstall "graphifyy[mcp,openai]" || {
-      echo "[!] Failed to install graphifyy[mcp,openai] via uv. Graphify MCP / DeepSeek extract will fail."
-      return 1
-    }
-  else
-    "$mcp_py" -m pip install -q "graphifyy[mcp,openai]" || {
-      echo "[!] Failed to install graphifyy[mcp,openai] via pip. Graphify MCP / DeepSeek extract will fail."
-      return 1
-    }
-  fi
-
-  if [ -x "$HOME/.local/bin/graphify-mcp" ]; then
-    GRAPHIFY_MCP_BIN="$HOME/.local/bin/graphify-mcp"
-  fi
-  if "$mcp_py" -c "from mcp.server.stdio import stdio_server" >/dev/null 2>&1 \
-     && "$mcp_py" -c "import openai" >/dev/null 2>&1; then
-    echo "[✓] Graphify MCP + OpenAI extras installed."
-  else
-    echo "[!] graphifyy[mcp,openai] installed but import still fails."
-    return 1
-  fi
-}
-
 # Merge [mcp_servers.<name>] tables into a Grok config.toml without clobbering
 # other sections ([cli], [models], [ui], ...). Used for both ~/.grok/config.toml
 # and per-project .grok/config.toml.
@@ -466,30 +408,6 @@ fi
 GITIGNORE_GLOBAL="$(git config --global core.excludesfile 2>/dev/null || echo "$HOME/.gitignore_global")"
 touch "$GITIGNORE_GLOBAL"
 git config --global core.excludesfile "$GITIGNORE_GLOBAL"
-
-add_if_missing() {
-  local pattern="$1"
-  local file="$2"
-  if ! grep -Fxq "$pattern" "$file" 2>/dev/null; then
-    echo "$pattern" >> "$file"
-  fi
-}
-
-# Graphify extract treats generated MCP JSON as "code" (zero nodes).
-# .graphifyignore is the documented exclude file.
-ensure_graphify_ignore() {
-  local repo="$1"
-  local ignore="$repo/.graphifyignore"
-  touch "$ignore"
-  add_if_missing ".cline_mcp_servers.json" "$ignore"
-  add_if_missing ".clinerules" "$ignore"
-  add_if_missing ".mcp.json" "$ignore"
-  add_if_missing ".devin/mcp_config.json" "$ignore"
-  add_if_missing ".devin/config.local.json" "$ignore"
-  add_if_missing ".zed/settings.json" "$ignore"
-  add_if_missing ".grok/config.toml" "$ignore"
-  add_if_missing ".cursor/mcp.json" "$ignore"
-}
 
 # Drop already-tracked MCP configs from the git index so the global
 # excludesfile actually hides them. Does not delete the working copies.
@@ -801,22 +719,7 @@ process_project() {
   fi
 
   # C. Graphify Knowledge Graph Extraction (via DeepSeek deepseek-v4-pro)
-  if [ "$RUN_GRAPHIFY" = true ] && [ -n "$GRAPHIFY_BIN" ]; then
-    if [ -n "${DEEPSEEK_API_KEY:-}" ]; then
-      if [ "$FORCE_REBUILD" = true ] || [ ! -f "$repo/graphify-out/graph.json" ]; then
-        echo "[*] [Graphify] Extracting knowledge graph via DeepSeek (deepseek-v4-pro)..."
-        local extra_flags=""
-        if [ -f "$repo/Cargo.toml" ]; then
-          extra_flags="--cargo"
-        fi
-        "$GRAPHIFY_BIN" extract "$repo" --backend deepseek --model deepseek-v4-pro --no-cluster $extra_flags || true
-      else
-        echo "[✓] [Graphify] graphify-out/graph.json already exists."
-      fi
-    else
-      echo "[!] [Graphify] Skipped extraction (DEEPSEEK_API_KEY not set)."
-    fi
-  fi
+  graphify_extract "$repo" || true
 
   # C2. Graphify should not treat MCP configs this script writes as extract inputs
   ensure_graphify_ignore "$repo"

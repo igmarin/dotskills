@@ -26,3 +26,12 @@ run() {
   log_cmd "$*"
   "$@"
 }
+
+# Append pattern to file only if it is not already present.
+add_if_missing() {
+  local pattern="$1"
+  local file="$2"
+  if ! grep -Fxq "$pattern" "$file" 2>/dev/null; then
+    echo "$pattern" >> "$file"
+  fi
+}
