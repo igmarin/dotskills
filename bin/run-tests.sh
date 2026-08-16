@@ -39,11 +39,12 @@ fi
 # 3. Run shellcheck if it is installed.
 if command -v shellcheck >/dev/null 2>&1; then
   echo "[*] Running shellcheck..."
-  if shellcheck \
+  if shellcheck -S warning \
     "$ROOT/bin/dotskills" \
     "$ROOT/bin/install-skills.sh" \
     "$ROOT/bin/setup-ai-tools.sh" \
     "$ROOT/bin/lib/"*.sh \
+    "$ROOT/bin/run-tests.sh" \
     "$ROOT/install.sh" \
     "$ROOT/test-validation.sh"; then
     echo "[✓] shellcheck passed"

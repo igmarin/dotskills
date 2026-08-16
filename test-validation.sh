@@ -490,14 +490,20 @@ echo "Test 26: setup-ai-tools.sh rejects --npx"
 NPX_TMP="$(mktemp -d)"
 mkdir -p "$NPX_TMP/repo"
 ( cd "$NPX_TMP/repo" && git init -q )
+NPX_ERR="$NPX_TMP/err.txt"
 if (
-  "$SCRIPT_DIR/bin/setup-ai-tools.sh" --no-install --no-gum --skip-serena --skip-codegraph --skip-graphify --npx owner/repo "$NPX_TMP/repo" >/dev/null 2>&1
+  "$SCRIPT_DIR/bin/setup-ai-tools.sh" --no-install --no-gum --skip-serena --skip-codegraph --skip-graphify --npx owner/repo "$NPX_TMP/repo" 2>"$NPX_ERR"
 ); then
   echo "  FAIL (should have exited with an error)" >&2
   fail_count=$((fail_count + 1))
 else
-  echo "  PASS"
-  pass_count=$((pass_count + 1))
+  if grep -qE "install-skills\.sh|dotskills all" "$NPX_ERR"; then
+    echo "  PASS"
+    pass_count=$((pass_count + 1))
+  else
+    echo "  FAIL (error did not mention install-skills.sh or dotskills all): $(cat "$NPX_ERR")" >&2
+    fail_count=$((fail_count + 1))
+  fi
 fi
 rm -rf "$NPX_TMP"
 
@@ -509,14 +515,15 @@ echo ""
 test_count=$((test_count + 1))
 echo "Test 27: malformed dotskills.toml falls back without crashing"
 MALFORMED_TMP="$(mktemp -d)"
+MALFORMED_ERR="$MALFORMED_TMP/err.txt"
 echo 'this is not [ valid toml' > "$MALFORMED_TMP/dotskills.toml"
 if (
   . "$SCRIPT_DIR/bin/lib/config.sh"
-  load_dotskills_config "$MALFORMED_TMP"
-  if [ "${#OWNED_REPOS[@]}" -eq 0 ] && [ "${#NPX_COMMUNITY[@]}" -eq 0 ]; then
+  load_dotskills_config "$MALFORMED_TMP" 2>"$MALFORMED_ERR"
+  if [ "${#OWNED_REPOS[@]}" -eq 0 ] && [ "${#NPX_COMMUNITY[@]}" -eq 0 ] && grep -q "could not load" "$MALFORMED_ERR"; then
     exit 0
   else
-    echo "  OWNED_REPOS=${OWNED_REPOS[*]}; NPX_COMMUNITY=${NPX_COMMUNITY[*]}" >&2
+    echo "  OWNED_REPOS=${OWNED_REPOS[*]}; NPX_COMMUNITY=${NPX_COMMUNITY[*]}; stderr=$(cat "$MALFORMED_ERR")" >&2
     exit 1
   fi
 ); then

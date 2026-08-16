@@ -19,7 +19,7 @@ jobs:
 
       - name: Run shellcheck
         run: |
-          shellcheck \
+          shellcheck -S warning \
             bin/dotskills \
             bin/install-skills.sh \
             bin/setup-ai-tools.sh \

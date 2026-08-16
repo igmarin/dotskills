@@ -4,6 +4,10 @@
 #
 # Loads repo-level dotskills.toml and merges it with ~/.dotskills/config.toml.
 # User config values override repo config values for the same key.
+#
+# This function is safe for `set -e` callers: it never exits and always
+# returns 0. On any failure (missing python3, missing TOML parser, malformed
+# file) it falls back to empty arrays and lets callers use their defaults.
 
 # shellcheck source=lib/common.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
@@ -21,7 +25,7 @@ load_dotskills_config() {
   NPX_COMMUNITY=()
 
   local raw
-  raw=$(PYTHONDONTWRITEBYTECODE=1 python3 - "$repo_config" "$user_config" 2>/dev/null <<'PY'
+  if ! raw=$(PYTHONDONTWRITEBYTECODE=1 python3 - "$repo_config" "$user_config" <<'PY'
 import os
 import sys
 
@@ -37,7 +41,10 @@ def load(path):
     try:
         with open(path, "rb") as f:
             return tomllib.load(f)
-    except Exception:
+    except Exception as e:
+        # Single-line, safe for the | delimiter the shell expects.
+        msg = str(e).replace("\n", " ").replace("|", "/")
+        print(f"warn|could not load {path}: {msg}")
         return {}
 
 
@@ -62,7 +69,10 @@ for v in owned:
 for v in npx:
     print(f"npx|{v}")
 PY
-) || true
+); then
+    # Missing python3 or unexpected crash: silently fall back.
+    raw=""
+  fi
 
   local line kind value
   while IFS= read -r line; do
@@ -72,10 +82,9 @@ PY
     case "$kind" in
       owned) OWNED_REPOS+=("$value") ;;
       npx)   NPX_COMMUNITY+=("$value") ;;
+      warn)  echo "Warning: $value" >&2 ;;
     esac
   done <<< "$raw"
 
-  # Always return 0. If python3 or the TOML parser is missing, we fall back
-  # to the hard-coded defaults that callers supply afterwards.
   return 0
 }
