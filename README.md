@@ -227,7 +227,8 @@ dotskills/
 ├── docs/
 │   ├── PLAN-setup-ai-tools-and-refresh.md
 │   ├── PLAN-split-setup-scripts.md      # Unified refactor plan
-│   └── PROMPT-split-setup-scripts.md    # Paste this in the next window
+│   ├── PROMPT-split-setup-scripts.md    # Paste this in the next window
+│   └── SOURCES.md                       # Arrays, lib modules, tool chain map
 └── README.md
 ```
 
