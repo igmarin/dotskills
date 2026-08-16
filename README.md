@@ -40,14 +40,24 @@ This machine's `~/.agents/skills/` mix is not a source of truth and is not harve
 
 ## Skill sources
 
-### `./install.sh` (clone)
+### `./install.sh` and `./bin/dotskills` (clone)
+
+Interactive (`./bin/dotskills` or `./bin/dotskills skills` in a terminal):
+- Uses `gh repo list --limit 50` to show your most recently updated GitHub repos
+- Multi-select with `gum`, or add a custom `owner/repo-name` not in the list
+- Requires `gh` installed and authenticated (`gh auth login`)
+
+Non-interactive / script:
+```bash
+./bin/dotskills skills --repo owner/repo-name --repo owner/another-repo
+./install.sh --repo owner/repo-name --repo owner/another-repo
+```
 
 | Priority | Source | When |
 |----------|--------|------|
 | 1 (highest) | `dotskills/skills/` (this repo) | Always (generic personal). **`setup-rs-guard` only with `--with-rs-guard`.** |
-| 2 | [`igmarin/rails-agent-skills`](https://github.com/igmarin/rails-agent-skills) | Default |
-| 2 | [`igmarin/ruby-core-skills`](https://github.com/igmarin/ruby-core-skills) | Default |
-| 2 | [`igmarin/agnostic-planning-skills`](https://github.com/igmarin/agnostic-planning-skills) | Default |
+| 2 | Default owned repos | Non-interactive, no `--repo` |
+| 2 | Repos selected from `gh` / `--repo` | Interactive or explicit `--repo` |
 | 2 | [`igmarin/elixir-phoenix-skills`](https://github.com/igmarin/elixir-phoenix-skills) | `--with=elixir-phoenix-skills` (work-only) |
 
 **Collision policy:** later copies win. Personal skills override everything.
@@ -84,19 +94,19 @@ npx skills install -g dietrichgebert/ponytail --all
 ```bash
 git clone https://github.com/igmarin/dotskills.git
 cd dotskills
-./bin/dotskills              # gum: skills + tools as one flow
-./install.sh                 # skills only (shim)
+./bin/dotskills              # gum: pick skill repos from gh + tools + repos
+./install.sh                 # skills only: default owned repos (shim)
 ./bin/dotskills all --no-gum --no-install .
 ```
 
-`./bin/dotskills` with no command, in a terminal, is the same unit: one gum session, then skills, then tools.  
+`./bin/dotskills` with no command, in a terminal, is the same unit: one gum session, then skills, then tools. The skills step uses `gh repo list` if `gh` is installed and authenticated; otherwise it falls back to the default owned repos.  
 `./bin/dotskills skills [flags]` → `bin/install-skills.sh`  
 `./bin/dotskills tools [flags]` → `bin/setup-ai-tools.sh`  
 `./bin/dotskills all [tools flags]` → skills (defaults), then tools. `--dry-run` on `all` is passed to skills and **not** to tools (tools would interpret `--dry-run` as a project path argument).
 
 This will:
 
-1. Create `~/.dotskills/sources/` and clone the **owned** source repos there
+1. Create `~/.dotskills/sources/` and clone the selected source repos there
 2. Copy those skills into `~/.agents/skills/`
 3. Copy generic personal skills last (they always win). `setup-rs-guard` is not copied unless you pass `--with-rs-guard`
 

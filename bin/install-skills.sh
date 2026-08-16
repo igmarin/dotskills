@@ -9,6 +9,7 @@
 # Features:
 #   --dry-run                 Show what would happen, no changes
 #   --verbose                 Log commands being executed
+#   --repo owner/repo         Repeatable; override default owned repo list
 #   --only=LIST               Comma-separated slugs (e.g., --only=igmarin/rails-agent-skills)
 #   --with-community          npx-install third-party collections (not clone)
 #   --with=elixir-phoenix-skills
@@ -55,6 +56,7 @@ ONLY_SLUG=""
 WITH_COMMUNITY=false
 WITH_RS_GUARD=false
 WITH_ELIXIR=false
+declare -a REPO_OVERRIDES=()
 
 # Default: repos you author. Elixir is opt-in. Community is npx, not clone.
 declare -a OWNED_REPOS=(
@@ -241,27 +243,50 @@ uninstall_skills() {
 
 # ── Args ─────────────────────────────────────────────────────────────────────
 
-for arg in "$@"; do
-  case "$arg" in
-    --dry-run) DRY_RUN=true ;;
-    --verbose) VERBOSE=true ;;
-    --uninstall|--clean) UNINSTALL=true ;;
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run) DRY_RUN=true; shift ;;
+    --verbose) VERBOSE=true; shift ;;
+    --uninstall|--clean) UNINSTALL=true; shift ;;
     --only=*)
-      ONLY_SLUG="${arg#*=}"
+      ONLY_SLUG="${1#*=}"
       validate_only_list
+      shift
       ;;
-    --with-community) WITH_COMMUNITY=true ;;
-    --with-rs-guard) WITH_RS_GUARD=true ;;
+    --repo)
+      if [ -z "${2:-}" ]; then
+        echo "Error: --repo needs an owner/repo slug" >&2
+        exit 1
+      fi
+      if ! valid_slug "$2"; then
+        echo "Error: invalid --repo slug (expected owner/name): $2" >&2
+        exit 1
+      fi
+      REPO_OVERRIDES+=("$2")
+      shift 2
+      ;;
+    --repo=*)
+      slug="${1#*=}"
+      if ! valid_slug "$slug"; then
+        echo "Error: invalid --repo slug (expected owner/name): $slug" >&2
+        exit 1
+      fi
+      REPO_OVERRIDES+=("$slug")
+      shift
+      ;;
+    --with-community) WITH_COMMUNITY=true; shift ;;
+    --with-rs-guard) WITH_RS_GUARD=true; shift ;;
     --with=elixir-phoenix-skills|--with=igmarin/elixir-phoenix-skills)
       WITH_ELIXIR=true
+      shift
       ;;
     --with=*)
-      echo "Unknown extra: ${arg#*=}" >&2
+      echo "Unknown extra: ${1#*=}" >&2
       echo "Known extras: elixir-phoenix-skills" >&2
       echo "Also: --with-community  --with-rs-guard" >&2
       exit 1
       ;;
-    --help)
+    --help|-h)
       cat <<'EOF'
 dotskills install.sh
 
@@ -273,6 +298,9 @@ Third-party collections: npx skills install -g <slug> --all
 Features:
   --dry-run      Show what would happen, no changes
   --verbose      Log commands being executed
+  --repo owner/repo
+                 Repeatable; use instead of the default owned repo list.
+                 Example: --repo igmarin/ruby-core-skills
   --only=LIST    Comma-separated slugs (e.g., --only=igmarin/rails-agent-skills)
   --with-community
                  npx-install collections (not clone):
@@ -298,6 +326,7 @@ Usage:
   ./install.sh --with-community             — also npx third-party collections
   ./install.sh --with=elixir-phoenix-skills — also elixir (work machine)
   ./install.sh --with-rs-guard              — also setup-rs-guard
+  ./install.sh --repo owner/repo            — override owned repos
   ./install.sh --dry-run
   ./install.sh --verbose
   ./install.sh --only=slug1,slug2
@@ -306,7 +335,7 @@ Usage:
 EOF
       exit 0
       ;;
-    *) echo "Unknown argument: $arg" >&2; exit 1 ;;
+    *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
 
@@ -325,9 +354,17 @@ if $UNINSTALL; then
   exit 0
 fi
 
-# Lowest priority first. npx community (opt-in) < owned < elixir (opt-in) < personal.
+# Lowest priority first. npx community (opt-in) < selected repos or owned < elixir (opt-in) < personal.
 SOURCE_REPOS=()
-SOURCE_REPOS+=("${OWNED_REPOS[@]}")
+
+if [ "${#REPO_OVERRIDES[@]}" -gt 0 ]; then
+  for slug in "${REPO_OVERRIDES[@]}"; do
+    SOURCE_REPOS+=("${slug}|https://github.com/${slug}.git|skills")
+  done
+else
+  SOURCE_REPOS+=("${OWNED_REPOS[@]}")
+fi
+
 if $WITH_ELIXIR; then
   SOURCE_REPOS+=("$ELIXIR_REPO")
 fi

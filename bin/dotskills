@@ -33,11 +33,16 @@ Interactive (gum):
 
 Commands:
   skills [flags]   owned skill clones + personal skills/
+                   Interactive: pick repos from `gh repo list` + custom input
+                   --repo owner/repo (repeatable; overrides default list)
   tools  [flags]   Serena / CodeGraph / Graphify
   all    [flags]   skills (defaults), then tools
                    --dry-run is passed to skills and stripped from tools
 
   --no-gum         skip the TUI even in a terminal
+
+Note: interactive skills mode uses gh (GitHub CLI) to list your repos.
+      Install gh and run `gh auth login` first.
 EOF
 }
 
@@ -85,6 +90,68 @@ has_line() {
   return 1
 }
 
+# Return 0 if slug looks like owner/repo.
+valid_slug() {
+  local slug="$1"
+  [[ "$slug" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || return 1
+  [[ "$slug" =~ \.\. ]] && return 1
+  return 0
+}
+
+# Prompt for one or more custom owner/repo slugs and append to an array.
+_prompt_custom_repos() {
+  local -n arr="$1"
+  local custom
+  while gum confirm --default=true "Add a custom owner/repo not in the gh list?"; do
+    custom="$(gum input --placeholder "owner/repo-name")" || break
+    if [ -n "$custom" ] && valid_slug "$custom"; then
+      arr+=("$custom")
+    else
+      echo "[!] Invalid slug: $custom (expected owner/repo)"
+    fi
+  done
+}
+
+# Use gh to list the user's repos and let the user multi-select.
+# Also allows custom owner/repo input. Prints selected slugs one per line.
+select_gh_repos() {
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "[*] gh is not installed; using default repo list." >&2
+    return 0
+  fi
+  if ! gh auth status >/dev/null 2>&1; then
+    echo "[*] gh is not authenticated (run 'gh auth login'). Using default repo list." >&2
+    return 0
+  fi
+
+  local -a all=() selected=()
+  local raw
+  raw="$(gh repo list --json nameWithOwner --limit 50 -t '{{range .}}{{printf "%s\n" .nameWithOwner}}{{end}}' 2>/dev/null)" || {
+    echo "[*] gh repo list failed; using default repo list." >&2
+    return 0
+  }
+
+  mapfile -t all <<< "$raw"
+
+  if [ "${#all[@]}" -eq 0 ]; then
+    echo "[*] No repos found via gh; using default repo list." >&2
+    return 0
+  fi
+
+  local sel
+  sel="$(gum choose --no-limit \
+    --header "Select skill source repos (space to toggle, enter to confirm)" \
+    "${all[@]}")" || return 0
+
+  mapfile -t selected <<< "$sel"
+
+  _prompt_custom_repos selected
+
+  for r in "${selected[@]}"; do
+    [ -n "$r" ] && echo "$r"
+  done
+}
+
 run_unified_gum() {
   local scan_root="$1"
   local jobs extras tools_sel selected_names name
@@ -92,7 +159,7 @@ run_unified_gum() {
   local with_community=false with_elixir=false with_rs_guard=false
   local run_serena=true run_codegraph=true run_graphify=true
   local force=false auto_install=true
-  local -a repo_names=() selected_repos=() skill_args=() tool_args=()
+  local -a repo_names=() selected_repos=() selected_skill_repos=() skill_args=() tool_args=()
 
   jobs="$(gum choose --no-limit \
     --header "What to configure? (space to toggle, enter to confirm)" \
@@ -111,6 +178,12 @@ run_unified_gum() {
     has_line "$extras" "Community collections (npx --all)" && with_community=true
     has_line "$extras" "Elixir Phoenix skills (work)" && with_elixir=true
     has_line "$extras" "setup-rs-guard (opt-in)" && with_rs_guard=true
+
+    echo ""
+    echo "[*] Loading repos from gh..."
+    while IFS= read -r r; do
+      [ -n "$r" ] && selected_skill_repos+=("$r")
+    done < <(select_gh_repos)
   fi
 
   if $run_tools; then
@@ -159,6 +232,10 @@ run_unified_gum() {
     $with_community && skill_args+=(--with-community)
     $with_elixir && skill_args+=(--with=elixir-phoenix-skills)
     $with_rs_guard && skill_args+=(--with-rs-guard)
+    local r
+    for r in "${selected_skill_repos[@]}"; do
+      skill_args+=(--repo "$r")
+    done
     echo ""
     echo "==> skills"
     "$SKILLS" "${skill_args[@]+"${skill_args[@]}"}"
@@ -212,17 +289,47 @@ case "$cmd" in
   all)
     skill_flags=()
     tool_flags=()
-    for a in "$@"; do
+    while [[ $# -gt 0 ]]; do
+      a="$1"
       case "$a" in
-        --dry-run|--dry-run=true) skill_flags+=(--dry-run) ;;
-        --dry-run=false) ;;  # Explicitly ignore
-        *) tool_flags+=("$a") ;;
+        --dry-run|--dry-run=true) skill_flags+=(--dry-run); shift ;;
+        --dry-run=false) shift ;;
+        --repo)
+          if [ -z "${2:-}" ]; then
+            echo "Error: --repo needs an argument" >&2
+            exit 1
+          fi
+          if valid_slug "$2"; then
+            skill_flags+=(--repo "$2")
+          else
+            tool_flags+=(--repo "$2")
+          fi
+          shift 2
+          ;;
+        --repo=*)
+          val="${a#*=}"
+          if valid_slug "$val"; then
+            skill_flags+=(--repo "$val")
+          else
+            tool_flags+=(--repo "$val")
+          fi
+          shift
+          ;;
+        --with-community|--with-rs-guard|--with=elixir-phoenix-skills|--with=igmarin/elixir-phoenix-skills)
+          skill_flags+=("$a"); shift ;;
+        --with=*)
+          echo "Unknown extra: ${a#*=}" >&2
+          echo "Known extras: elixir-phoenix-skills" >&2
+          echo "Also: --with-community  --with-rs-guard" >&2
+          exit 1
+          ;;
+        *) tool_flags+=("$a"); shift ;;
       esac
     done
     if [ "${#skill_flags[@]}" -gt 0 ]; then
-      echo "note: --dry-run applies to skills; it is not passed to tools"
+      echo "note: skill flags apply to install-skills.sh; remaining args go to setup-ai-tools.sh"
     fi
-    echo "==> skills (owned repos + generic personal skills)"
+    echo "==> skills"
     "$SKILLS" "${skill_flags[@]+"${skill_flags[@]}"}"
     echo ""
     echo "==> tools"

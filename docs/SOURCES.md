@@ -6,9 +6,12 @@ This doc maps the constants, arrays, and `bin/lib/` modules so the next graph bu
 
 These arrays control which skills get installed and where they come from.
 
-- `OWNED_REPOS` — personal skill repos I author (`agnostic-planning-skills`, `ruby-core-skills`, `rails-agent-skills`). Copied into `~/.dotskills/sources/`.
+- `OWNED_REPOS` — fallback list of personal skill repos. Used only when `gh` is missing/not authed and no `--repo` flag is passed.
 - `NPX_COMMUNITY` — addyosmani/blueprint, installed via `npx` with `--with-community`.
-- `SOURCE_REPOS` — union of `OWNED_REPOS` + optional community collections. Used to clone or update sources under `~/.dotskills/sources/`.
+- `SOURCE_REPOS` — runtime list built from `--repo` overrides (or `OWNED_REPOS` fallback) + optional `--with=elixir-phoenix-skills`. Used to clone or update sources under `~/.dotskills/sources/`.
+- `--repo owner/repo` — repeatable flag that adds a GitHub repo (`https://github.com/owner/repo.git`, `skills/` subdir) to `SOURCE_REPOS`.
+
+`bin/dotskills` (interactive) calls `select_gh_repos()` to list the last 50 updated repos via `gh repo list --limit 50`, then `gum choose --no-limit` for multi-select, then allows custom `owner/repo` input. Selected repos are passed as `--repo owner/repo` to `install-skills.sh`.
 
 The script also uses `assert_under_sources()` and `valid_slug()` (from `test-validation.sh`) to keep all paths inside `~/.dotskills/sources/` and reject path-escape slugs.
 
