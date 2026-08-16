@@ -16,37 +16,16 @@
 
 set -euo pipefail
 
-# Define the validation functions inline for testing
-valid_slug() {
-  local slug="$1"
-  local owner="${slug%%/*}"
-  local repo="${slug#*/}"
+# Source shared helpers from the actual codebase. valid_slug now lives in
+# bin/lib/common.sh; we keep assert_under_sources inline because it is a
+# path-safety test harness.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=bin/lib/paths.sh
+. "$SCRIPT_DIR/bin/lib/paths.sh"
+# shellcheck source=bin/lib/common.sh
+. "$SCRIPT_DIR/bin/lib/common.sh"
 
-  # Basic format check
-  [[ "$slug" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || return 1
-
-  # Reject path traversal
-  [[ "$slug" =~ \.\. ]] && return 1
-
-  # Reject leading dots in owner
-  [[ "$owner" =~ ^\. ]] && return 1
-
-  # Reject leading/trailing hyphens in owner (problematic for git clone)
-  [[ "$owner" =~ ^- ]] && return 1
-  [[ "$owner" =~ -$ ]] && return 1
-
-  # Reject dots in repo (leading, trailing, or consecutive)
-  [[ "$repo" =~ ^\. ]] && return 1
-  [[ "$repo" =~ \.$ ]] && return 1
-  [[ "$repo" =~ \.\. ]] && return 1
-
-  # Reject leading/trailing hyphens in repo (problematic for git clone)
-  [[ "$repo" =~ ^- ]] && return 1
-  [[ "$repo" =~ -$ ]] && return 1
-
-  return 0
-}
-
+# assert_under_sources is tested inline so it can use temp SOURCES_DIR
 assert_under_sources() {
   local slug_or_path="$1"
   local sources_resolved
@@ -312,6 +291,193 @@ else
   pass_count=$((pass_count + 1))
 fi
 test_count=$((test_count + 1))
+
+echo ""
+echo "Testing bin/dotskills all --dry-run side effects..."
+echo ""
+
+# Test: bin/dotskills all --dry-run must not write any files.
+test_count=$((test_count + 1))
+echo "Test 22: dry-run all produces no side effects"
+DRY_TMP="$(mktemp -d)"
+DRY_HOME="$DRY_TMP/home"
+DRY_REPO="$DRY_TMP/repo"
+mkdir -p "$DRY_HOME" "$DRY_REPO"
+# Initialize a git repo so is_project_dir returns true and the tool loop is exercised.
+( cd "$DRY_REPO" && git init -q )
+if (
+  export HOME="$DRY_HOME"
+  # Restrict PATH so grok/serena/codegraph/graphify do not start servers during the test.
+  export PATH="/usr/bin:/bin"
+  if "$SCRIPT_DIR/bin/dotskills" all --dry-run --no-install --skip-serena --skip-codegraph --skip-graphify --repo owner/test-repo "$DRY_REPO" >/dev/null 2>&1; then
+    # After a dry run, no files should be written to $HOME or the target repo.
+    HOME_FILES="$(find "$DRY_HOME" -type f 2>/dev/null)"
+    REPO_FILES="$(find "$DRY_REPO" -type f -not -path "$DRY_REPO/.git/*" 2>/dev/null)"
+    if [ -z "$HOME_FILES" ] && [ -z "$REPO_FILES" ]; then
+      exit 0
+    else
+      echo "  Side effects found: home files: $HOME_FILES; repo files: $REPO_FILES" >&2
+      exit 1
+    fi
+  else
+    exit 1
+  fi
+); then
+  echo "  PASS"
+  pass_count=$((pass_count + 1))
+else
+  echo "  FAIL"
+  fail_count=$((fail_count + 1))
+fi
+rm -rf "$DRY_TMP"
+
+echo ""
+echo "Testing setup-ai-tools child project detection..."
+echo ""
+
+# Test: setup-ai-tools.sh should only process child directories that look like projects.
+test_count=$((test_count + 1))
+echo "Test 23: setup-ai-tools only processes project-like children"
+CHILD_TMP="$(mktemp -d)"
+mkdir -p "$CHILD_TMP/real-project"
+mkdir -p "$CHILD_TMP/lib"
+( cd "$CHILD_TMP/real-project" && git init -q )
+
+if (
+  export HOME="$CHILD_TMP/home"
+  export PATH="/usr/bin:/bin"
+  mkdir -p "$CHILD_TMP/home"
+  "$SCRIPT_DIR/bin/setup-ai-tools.sh" --dry-run --no-install --no-gum --skip-serena --skip-codegraph --skip-graphify "$CHILD_TMP" 2>&1 | tee "$CHILD_TMP/output.txt" >/dev/null
+  if grep -q "Would process: real-project" "$CHILD_TMP/output.txt" && ! grep -q "Would process: lib" "$CHILD_TMP/output.txt"; then
+    exit 0
+  else
+    echo "  Output did not match. real-project: $(grep -c "Would process: real-project" "$CHILD_TMP/output.txt"); lib: $(grep -c "Would process: lib" "$CHILD_TMP/output.txt")" >&2
+    exit 1
+  fi
+); then
+  echo "  PASS"
+  pass_count=$((pass_count + 1))
+else
+  echo "  FAIL"
+  fail_count=$((fail_count + 1))
+fi
+rm -rf "$CHILD_TMP"
+
+echo ""
+echo "Testing generated rules reflect provider/model..."
+echo ""
+
+# Test: generated .grok/rules/code-intelligence.md and .clinerules include the chosen provider/model.
+test_count=$((test_count + 1))
+echo "Test 24: generated rules use configured provider and model"
+RULES_TMP="$(mktemp -d)"
+mkdir -p "$RULES_TMP/repo"
+mkdir -p "$RULES_TMP/home/bin"
+( cd "$RULES_TMP/repo" && git init -q )
+
+# Provide lightweight fake tool binaries so the setup runs without starting servers.
+cat > "$RULES_TMP/home/bin/serena" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod +x "$RULES_TMP/home/bin/serena"
+
+cat > "$RULES_TMP/home/bin/codegraph" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod +x "$RULES_TMP/home/bin/codegraph"
+
+cat > "$RULES_TMP/home/bin/graphify" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod +x "$RULES_TMP/home/bin/graphify"
+
+cat > "$RULES_TMP/home/bin/graphify-mcp" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod +x "$RULES_TMP/home/bin/graphify-mcp"
+
+cat > "$RULES_TMP/home/bin/grok" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod +x "$RULES_TMP/home/bin/grok"
+
+if (
+  export HOME="$RULES_TMP/home"
+  export PATH="$RULES_TMP/home/bin:/usr/bin:/bin"
+  "$SCRIPT_DIR/bin/setup-ai-tools.sh" --no-install --no-gum --skip-serena --skip-codegraph --skip-graphify --provider openai --model gpt-5.6 "$RULES_TMP/repo" >/dev/null 2>&1
+  if [ -f "$RULES_TMP/repo/.grok/rules/code-intelligence.md" ] \
+     && grep -q "openai" "$RULES_TMP/repo/.grok/rules/code-intelligence.md" \
+     && grep -q "gpt-5.6" "$RULES_TMP/repo/.grok/rules/code-intelligence.md" \
+     && [ -f "$RULES_TMP/repo/.clinerules" ] \
+     && grep -q "openai" "$RULES_TMP/repo/.clinerules" \
+     && grep -q "gpt-5.6" "$RULES_TMP/repo/.clinerules"; then
+    exit 0
+  else
+    echo "  Generated rules did not contain openai / gpt-5.6" >&2
+    exit 1
+  fi
+); then
+  echo "  PASS"
+  pass_count=$((pass_count + 1))
+else
+  echo "  FAIL"
+  fail_count=$((fail_count + 1))
+fi
+rm -rf "$RULES_TMP"
+
+echo ""
+echo "Testing dotskills.toml config loading..."
+echo ""
+
+# Test: bin/lib/config.sh loads repo config and lets user config override.
+test_count=$((test_count + 1))
+echo "Test 25: dotskills.toml loads and user override wins"
+CONFIG_TMP="$(mktemp -d)"
+mkdir -p "$CONFIG_TMP/home/.dotskills"
+cat > "$CONFIG_TMP/dotskills.toml" <<'EOF'
+[repos]
+owned = [
+  "owner/repo-a|https://github.com/owner/repo-a.git|skills",
+]
+
+[npx]
+community = [
+  "owner/repo-a",
+]
+EOF
+cat > "$CONFIG_TMP/home/.dotskills/config.toml" <<'EOF'
+[npx]
+community = [
+  "owner/repo-b",
+]
+EOF
+
+if (
+  export HOME="$CONFIG_TMP/home"
+  . "$SCRIPT_DIR/bin/lib/config.sh"
+  load_dotskills_config "$CONFIG_TMP"
+  if [ "${#OWNED_REPOS[@]}" -eq 1 ] \
+     && [ "${OWNED_REPOS[0]}" = "owner/repo-a|https://github.com/owner/repo-a.git|skills" ] \
+     && [ "${#NPX_COMMUNITY[@]}" -eq 1 ] \
+     && [ "${NPX_COMMUNITY[0]}" = "owner/repo-b" ]; then
+    exit 0
+  else
+    echo "  OWNED_REPOS=${OWNED_REPOS[*]}; NPX_COMMUNITY=${NPX_COMMUNITY[*]}" >&2
+    exit 1
+  fi
+); then
+  echo "  PASS"
+  pass_count=$((pass_count + 1))
+else
+  echo "  FAIL"
+  fail_count=$((fail_count + 1))
+fi
+rm -rf "$CONFIG_TMP"
 
 echo ""
 echo "=========================================="

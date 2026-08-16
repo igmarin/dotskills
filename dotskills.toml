@@ -1,0 +1,22 @@
+# dotskills installer configuration.
+#
+# This file lives in the repo root and is version-controlled. Put personal
+# overrides in ~/.dotskills/config.toml; values there win over this file.
+
+[repos]
+owned = [
+  "igmarin/agnostic-planning-skills|https://github.com/igmarin/agnostic-planning-skills.git|skills",
+  "igmarin/ruby-core-skills|https://github.com/igmarin/ruby-core-skills.git|skills",
+  "igmarin/rails-agent-skills|https://github.com/igmarin/rails-agent-skills.git|skills",
+]
+
+[npx]
+community = [
+  "igmarin/agnostic-planning-skills",
+  "igmarin/ruby-core-skills",
+  "igmarin/rails-agent-skills",
+  "owainlewis/agent-skills",
+  "owainlewis/blueprint",
+  "mattpocock/skills",
+  "dietrichgebert/ponytail",
+]

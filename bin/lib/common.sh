@@ -36,6 +36,37 @@ add_if_missing() {
   fi
 }
 
+# Return 0 if slug looks like owner/repo.
+valid_slug() {
+  local slug="$1"
+  local owner="${slug%%/*}"
+  local repo="${slug#*/}"
+
+  # Basic format check
+  [[ "$slug" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || return 1
+
+  # Reject path traversal
+  [[ "$slug" =~ \.\. ]] && return 1
+
+  # Reject leading dots in owner
+  [[ "$owner" =~ ^\. ]] && return 1
+
+  # Reject leading/trailing hyphens in owner (problematic for git clone)
+  [[ "$owner" =~ ^- ]] && return 1
+  [[ "$owner" =~ -$ ]] && return 1
+
+  # Reject dots in repo (leading, trailing, or consecutive)
+  [[ "$repo" =~ ^\. ]] && return 1
+  [[ "$repo" =~ \.$ ]] && return 1
+  [[ "$repo" =~ \.\. ]] && return 1
+
+  # Reject leading/trailing hyphens in repo (problematic for git clone)
+  [[ "$repo" =~ ^- ]] && return 1
+  [[ "$repo" =~ -$ ]] && return 1
+
+  return 0
+}
+
 # Return 0 if dir looks like a project repo.
 is_project_dir() {
   local dir="${1%/}"

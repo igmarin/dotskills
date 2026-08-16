@@ -137,11 +137,14 @@ EOF
 # Project-level Grok MCP + rules.
 _write_grok_project() {
   local repo="$1"
+  local backend="${2:-deepseek}"
+  local model="${3:-deepseek-v4-pro}"
   if [ -n "$GROK_BIN" ]; then
     mkdir -p "$repo/.grok/rules"
     upsert_grok_mcp_toml "$repo/.grok/config.toml" "$repo"
     echo "[✓] [Grok] project MCP written to $repo/.grok/config.toml"
-    cat << 'EOF' > "$repo/.grok/rules/code-intelligence.md"
+    local file="$repo/.grok/rules/code-intelligence.md"
+    cat << 'EOF' > "$file"
 # Code intelligence
 
 Use these tools before dumping whole files or grepping the tree.
@@ -149,7 +152,9 @@ Use these tools before dumping whole files or grepping the tree.
 1. If `.codegraph/` exists, run `codegraph explore "<symbol or question>"` (or the CodeGraph MCP tools).
 2. Use Serena MCP tools (`get_symbols_overview`, `find_symbol`, `find_declaration`, `find_referencing_symbols`, `read_memory`) for LSP-level code navigation and project memory when the Serena server is connected.
 3. If `graphify-out/graph.json` exists, use Graphify (`graphify query`, `graphify explain`, `graphify path`, or the Graphify MCP). Treat codebase questions as graph queries first.
-4. Regenerate Graphify with `graphify extract . --backend deepseek --model deepseek-v4-pro --no-cluster` (DeepSeek `deepseek-v4-pro` is the default model). The backend and model are configurable via `setup-ai-tools.sh --provider` / `--model`. Rust workspaces also pass `--cargo`.
+4. Regenerate Graphify with `graphify extract . --backend {{BACKEND}} --model {{MODEL}} --no-cluster` ({{BACKEND}} `{{MODEL}}` is the chosen model). The backend and model are configurable via `setup-ai-tools.sh --provider` / `--model`. Rust workspaces also pass `--cargo`.
 EOF
+    sed -e "s|{{BACKEND}}|${backend}|g" -e "s|{{MODEL}}|${model}|g" "$file" > "$file.tmp"
+    mv "$file.tmp" "$file"
   fi
 }

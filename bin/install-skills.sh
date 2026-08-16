@@ -19,7 +19,8 @@
 #   --clean                   Alias for --uninstall
 #   --help                    Show this message
 #
-# Default sources (later copies override earlier on collision):
+# Default sources (later copies override earlier on collision).
+# Read from dotskills.toml and ~/.dotskills/config.toml; hard-coded values are the fallback:
 #   igmarin/agnostic-planning-skills
 #   igmarin/ruby-core-skills
 #   igmarin/rails-agent-skills
@@ -46,6 +47,8 @@ set -euo pipefail
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/paths.sh"
 # shellcheck source=lib/common.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
+# shellcheck source=lib/config.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/config.sh"
 
 DOTSKILLS_DIR="$(cd "$(script_dir_of "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCES_DIR="$HOME/.dotskills/sources"
@@ -59,23 +62,30 @@ WITH_ELIXIR=false
 declare -a REPO_OVERRIDES=()
 declare -a NPX_OVERRIDES=()
 
+# Load repo and user config; hardcoded defaults are the fallback.
+load_dotskills_config "$DOTSKILLS_DIR"
+
 # Default: repos you author. Elixir is opt-in. Community is npx, not clone.
-declare -a OWNED_REPOS=(
-  "igmarin/agnostic-planning-skills|https://github.com/igmarin/agnostic-planning-skills.git|skills"
-  "igmarin/ruby-core-skills|https://github.com/igmarin/ruby-core-skills.git|skills"
-  "igmarin/rails-agent-skills|https://github.com/igmarin/rails-agent-skills.git|skills"
-)
+if [ "${#OWNED_REPOS[@]}" -eq 0 ]; then
+  OWNED_REPOS=(
+    "igmarin/agnostic-planning-skills|https://github.com/igmarin/agnostic-planning-skills.git|skills"
+    "igmarin/ruby-core-skills|https://github.com/igmarin/ruby-core-skills.git|skills"
+    "igmarin/rails-agent-skills|https://github.com/igmarin/rails-agent-skills.git|skills"
+  )
+fi
 
 # Default npx skill collections (shown pre-selected in the TUI as recommended).
-declare -a NPX_COMMUNITY=(
-  "igmarin/agnostic-planning-skills"
-  "igmarin/ruby-core-skills"
-  "igmarin/rails-agent-skills"
-  "owainlewis/agent-skills"
-  "owainlewis/blueprint"
-  "mattpocock/skills"
-  "dietrichgebert/ponytail"
-)
+if [ "${#NPX_COMMUNITY[@]}" -eq 0 ]; then
+  NPX_COMMUNITY=(
+    "igmarin/agnostic-planning-skills"
+    "igmarin/ruby-core-skills"
+    "igmarin/rails-agent-skills"
+    "owainlewis/agent-skills"
+    "owainlewis/blueprint"
+    "mattpocock/skills"
+    "dietrichgebert/ponytail"
+  )
+fi
 
 ELIXIR_REPO="igmarin/elixir-phoenix-skills|https://github.com/igmarin/elixir-phoenix-skills.git|skills"
 
@@ -109,36 +119,6 @@ is_dirty() {
   git -C "$1" status --porcelain 2>/dev/null | grep -q .
 }
 
-valid_slug() {
-  local slug="$1"
-  local owner="${slug%%/*}"
-  local repo="${slug#*/}"
-  
-  # Basic format check
-  [[ "$slug" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || return 1
-  
-  # Reject path traversal
-  [[ "$slug" =~ \.\. ]] && return 1
-  
-  # Reject leading dots in owner
-  [[ "$owner" =~ ^\. ]] && return 1
-  
-  # Reject leading/trailing hyphens in owner (problematic for git clone)
-  [[ "$owner" =~ ^- ]] && return 1
-  [[ "$owner" =~ -$ ]] && return 1
-  
-  # Reject dots in repo (leading, trailing, or consecutive)
-  [[ "$repo" =~ ^\. ]] && return 1
-  [[ "$repo" =~ \.$ ]] && return 1
-  [[ "$repo" =~ \.\. ]] && return 1
-  
-  # Reject leading/trailing hyphens in repo (problematic for git clone)
-  [[ "$repo" =~ ^- ]] && return 1
-  [[ "$repo" =~ -$ ]] && return 1
-  
-  return 0
-}
-
 validate_only_list() {
   local IFS=',' slug
   [ -z "$ONLY_SLUG" ] && return 0
@@ -157,11 +137,16 @@ assert_under_sources() {
   local sources_resolved
   local target
   
-  # Resolve SOURCES_DIR to its real physical location to prevent symlink attacks
-  sources_resolved="$(cd "$SOURCES_DIR" 2>/dev/null && pwd -P)" || {
-    echo "Error: cannot resolve SOURCES_DIR: $SOURCES_DIR" >&2
-    exit 1
-  }
+  # Resolve SOURCES_DIR to its real physical location to prevent symlink attacks.
+  # In dry-run the directory may not exist yet, so fall back to the unresolved path.
+  if ! sources_resolved="$(cd "$SOURCES_DIR" 2>/dev/null && pwd -P)"; then
+    if $DRY_RUN; then
+      sources_resolved="$SOURCES_DIR"
+    else
+      echo "Error: cannot resolve SOURCES_DIR: $SOURCES_DIR" >&2
+      exit 1
+    fi
+  fi
   
   # If the argument is an existing path, resolve its physical location;
   # otherwise construct the path from the validated slug.
@@ -348,7 +333,8 @@ Features:
   --clean        Alias for --uninstall
   --help         Show this message
 
-Default sources (later copies override earlier on collision):
+Default sources (later copies override earlier on collision).
+Read from dotskills.toml and ~/.dotskills/config.toml; hard-coded values are the fallback:
   igmarin/agnostic-planning-skills
   igmarin/ruby-core-skills
   igmarin/rails-agent-skills

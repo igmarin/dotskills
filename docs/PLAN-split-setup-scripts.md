@@ -1,23 +1,23 @@
-# Unified plan: split `bin/setup-ai-tools.sh` into `bin/lib/`
+# Plan: split `bin/setup-ai-tools.sh` into `bin/lib/`
 
 Decided 2026-08-15.
-**Do not implement in the same session as this plan.** Next window: this file is the source of truth. Do not re-litigate it.
+Do not implement in this session. Use this file as the source of truth. Do not re-litigate it.
 
-Workspace: this repo only (`dotskills`). Do not edit `rs-guard`. Do not harvest `~/.agents/skills`. Do not commit unless asked.
+Scope: this repo only (`dotskills`). Do not edit `rs-guard`. Do not harvest `~/.agents/skills`. Do not commit unless asked.
 
 ---
 
 ## What we are doing
 
-`bin/setup-ai-tools.sh` is one long tools pass. The **configuration flow** is already one unit: `./bin/dotskills` (one gum session → skills → tools). This plan **extracts** that tools pass into smaller sourced files so a later change (CodeGraph, Graphify extra, MCP writer) is a one-place edit.
+`bin/setup-ai-tools.sh` is one long tools pass. The configuration flow is already a single unit: `./bin/dotskills` (one gum session → skills → tools). This plan extracts the tools pass into smaller sourced files so later changes (CodeGraph, Graphify extra, MCP writer) need only one edit.
 
-This is a refactor. Same flags, same skip/sync rules, same extras. No new product.
+This is a refactor. Flags, skip/sync rules, and extras stay the same. There is no new product.
 
 ### Completed context
 
-- `bin/setup-ai-tools.sh` has already been moved into this repo.
+- `bin/setup-ai-tools.sh` is already in this repo.
 - Graphify extra is `graphifyy[mcp,openai]`.
-- CodeGraph rule is: missing → `init`; exists → skip; `--force` + exists → `sync`.
+- CodeGraph rule: missing → `init`; exists → skip; `--force` + exists → `sync`.
 - `bin/dotskills` is the one entry point.
 - `setup-rs-guard` stays an opt-in extra.
 
@@ -25,22 +25,22 @@ This is a refactor. Same flags, same skip/sync rules, same extras. No new produc
 
 ## Settled (do not reopen)
 
-1. **One gum TUI.** It lives in `bin/dotskills`. Tools scripts must not grow a second menu. `setup-ai-tools.sh` keeps `--no-gum` / `--skip-*` / `--repo` for the dispatcher.
-2. **`bin/dotskills` stays the human entry.** `./install.sh` stays a shim to `bin/install-skills.sh`. `bin/setup-ai-tools.sh` stays the tools step `dotskills` calls.
-3. **`bin/install-skills.sh` stays one file** unless it has grown enough to hurt. Do not split it in this work.
-4. **One extract at a time.** Prove after each extract. Do not rewrite the whole tools script in one step.
-5. **No `SKILL.md` for the installer.** Still a human/local program.
-6. **No machine-absolute paths** in shipped scripts or README (`/Volumes/minimini/...`). Home-relative (`~/.agents/skills`) and repo-relative (`bin/…`) only.
+1. **One gum TUI.** It lives in `bin/dotskills`. Tools scripts must not add a second menu. `setup-ai-tools.sh` keeps `--no-gum`, `--skip-*`, and `--repo` for the dispatcher.
+2. **`bin/dotskills` stays the human entry point.** `./install.sh` stays a shim to `bin/install-skills.sh`. `bin/setup-ai-tools.sh` stays the tools step that `dotskills` calls.
+3. **`bin/install-skills.sh` stays one file** unless it grows enough to hurt. Do not split it in this work.
+4. **Extract one piece at a time.** Prove it works after each extract. Do not rewrite the whole tools script in one step.
+5. **No `SKILL.md` for the installer.** It is still a human/local program.
+6. **No machine-absolute paths** in shipped scripts or README (`/Volumes/minimini/...`). Use home-relative (`~/.agents/skills`) and repo-relative (`bin/…`) paths only.
 7. **Error handling consistency:**
-   - Lib files use `return 1` for errors, not `exit 1`
-   - Main script handles error propagation
-   - All error messages go to stderr
+   - Lib files use `return 1` for errors, not `exit 1`.
+   - The main script handles error propagation.
+   - All error messages go to stderr.
 8. **No duplicated helper code.** All lib files source `bin/lib/common.sh`.
 9. Behavior that must not change:
    - Graphify install: `graphifyy[mcp,openai]`
    - CodeGraph: missing → `init`; exists → skip; `--force` + exists → `sync` (not `init`, not `index`)
    - Skills default: three owned repos + generic `skills/`; `setup-rs-guard` only with `--with-rs-guard`
-   - Community: npx `skills install -g <slug> --all`, not clone
+   - Community: `npx skills install -g <slug> --all`, not clone
    - Elixir: `--with=elixir-phoenix-skills` only
 
 ---
@@ -82,13 +82,13 @@ Lib files source each other (e.g. `write-mcp.sh` → `common.sh`) using the same
 ## State contract
 
 Lib files receive state via:
-- Global variables set by setup-ai-tools.sh (e.g., VERBOSE, DRY_RUN, FORCE)
-- Function arguments (e.g., `codegraph_setup "$repo"`)
+- Global variables set by `setup-ai-tools.sh` (e.g. `VERBOSE`, `DRY_RUN`, `FORCE`)
+- Function arguments (e.g. `codegraph_setup "$repo"`)
 
 Lib files must NOT:
 - Modify global state without documentation
 - Read from stdin unless explicitly documented
-- Exit directly (use `return 1` for errors; let caller handle propagation)
+- Exit directly (use `return 1` for errors; let the caller handle propagation)
 - Call `set -e` themselves
 
 ---
@@ -204,7 +204,7 @@ Do not change `bin/dotskills` gum copy unless a path broke.
 
 - A second gum TUI
 - Splitting `install-skills.sh`
-- A `SKILL.md` for setup-ai-tools
+- A `SKILL.md` for `setup-ai-tools`
 - Changing default skill sources, npx list, or rs-guard facts
 - Running setup against every project
 - Mixing a behavior change with an extract
@@ -237,16 +237,16 @@ fi
 # no CodeGraph "Initializing" / init when .codegraph already exists
 ```
 
-Interactive check (human, next session if a TTY is available): `./bin/dotskills` is still **one** gum session.
+Interactive check (human, next session if a TTY is available): `./bin/dotskills` is still one gum session.
 
 ---
 
 ## Rollback strategy
 
-After each task, commit with a clear message like "Extract: detect-tools (Task 1)" and ensure the worktree is clean before proceeding.
+After each task, commit with a clear message like `Extract: detect-tools (Task 1)` and ensure the worktree is clean before proceeding.
 
 If the next task breaks behavior:
-1. Find the last good task commit (e.g., `git log --oneline --since="20 minutes ago"`)
+1. Find the last good task commit (e.g. `git log --oneline --since="20 minutes ago"`)
 2. Verify it is the commit you want to keep
 3. Run `git reset --hard <that-commit-hash>`
 

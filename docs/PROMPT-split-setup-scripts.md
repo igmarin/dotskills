@@ -1,16 +1,16 @@
-# Prompt — split `bin/setup-ai-tools.sh` into `bin/lib/`
+# Split `bin/setup-ai-tools.sh` into `bin/lib/`
 
-Start this in a new session whose cwd is the dotskills repository root.
+Start a new session in the dotskills repository root.
 
 ---
 
-Read `docs/PLAN-split-setup-scripts.md`. That file is the source of truth. Do not re-litigate it.
+Use `docs/PLAN-split-setup-scripts.md` as the source of truth. Read it first. Do not re-litigate it.
 
 Work only in `/Volumes/minimini/Developer/Projects/dotskills`. Do not edit `rs-guard`. Do not harvest `~/.agents/skills`.
 
 ## Do
 
-Implement the plan **one task at a time**, in this order, stopping to run the proof after each task:
+Implement the plan **one task at a time**, in this order. Run the proof after each task.
 
 0. **Extract shared utilities** into `bin/lib/common.sh`
 1. **Extract detect / install** into `bin/lib/detect-tools.sh`
@@ -21,8 +21,9 @@ Implement the plan **one task at a time**, in this order, stopping to run the pr
 6. **Cleanup and polish**
 
 Rules for the refactor:
+
 - Lib files use `return 1`, not `exit 1`
-- Lib files do NOT call `set -e`
+- Lib files do not call `set -e`
 - `setup-ai-tools.sh` is thin: flags, state, source libs, `process_project` loop
 - Same behavior: same flags, same skip/sync rules, same MCP configs, same gitignore patterns
 - No machine-absolute paths in shipped scripts or README

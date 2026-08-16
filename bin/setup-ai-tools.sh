@@ -44,6 +44,7 @@
 #   ./bin/setup-ai-tools.sh --codegraph-only          # Run only CodeGraph setup
 #   ./bin/setup-ai-tools.sh --graphify-only           # Run only Graphify extraction
 #   ./bin/setup-ai-tools.sh --no-install              # Do not auto-install missing tools
+#   ./bin/setup-ai-tools.sh --dry-run                 # Show what would happen without writing files
 #   ./bin/setup-ai-tools.sh --skip-serena             # Do not run Serena
 #   ./bin/setup-ai-tools.sh --skip-graphify           # Do not run Graphify
 #   ./bin/setup-ai-tools.sh --repo /path/to/repo      # Repeatable; target repo
@@ -59,6 +60,7 @@ RUN_CODEGRAPH=true
 RUN_GRAPHIFY=true
 FORCE_REBUILD=false
 AUTO_INSTALL=true
+DRY_RUN=false
 TARGET_PATH=""
 SELECTED_REPOS=()
 GRAPHIFY_BACKEND="${GRAPHIFY_BACKEND:-deepseek}"
@@ -107,6 +109,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-install)
       AUTO_INSTALL=false
+      shift
+      ;;
+    --dry-run)
+      DRY_RUN=true
       shift
       ;;
     --skip-serena)
@@ -191,7 +197,11 @@ echo "[✓] Graphify:  ${GRAPHIFY_BIN:-NOT FOUND}"
 echo "[✓] Graph-MCP: ${GRAPHIFY_MCP_BIN:-NOT FOUND}"
 echo "[✓] Grok:      ${GROK_BIN:-NOT FOUND}"
 
-ensure_graphify_mcp_extra "$GRAPHIFY_MCP_BIN" || true
+if $DRY_RUN; then
+  echo "[dry-run] Skipping Graphify extra check."
+else
+  ensure_graphify_mcp_extra "$GRAPHIFY_MCP_BIN" || true
+fi
 
 # Determine which API key graphify will need for the chosen backend.
 case "$GRAPHIFY_BACKEND" in
@@ -208,8 +218,12 @@ fi
 # ------------------------------------------------------------------------------
 # 2. Update Global Gitignore and AI Client Settings
 # ------------------------------------------------------------------------------
-setup_global_gitignore
-setup_global_mcp
+if $DRY_RUN; then
+  echo "[dry-run] Skipping global gitignore and AI client settings."
+else
+  setup_global_gitignore
+  setup_global_mcp
+fi
 
 # ------------------------------------------------------------------------------
 # 3. Project Processor Function
@@ -217,6 +231,21 @@ setup_global_mcp
 process_project() {
   local repo="${1%/}"
   local repo_name="$(basename "$repo")"
+
+  if $DRY_RUN; then
+    echo ""
+    echo "================================================================="
+    echo " [dry-run] Would process: $repo_name"
+    echo " Path:                   $repo"
+    echo " Provider/Model:         $GRAPHIFY_BACKEND / $GRAPHIFY_MODEL"
+    echo "   - CodeGraph init/skip/sync"
+    echo "   - Serena project setup"
+    echo "   - Graphify extract (if API key is set)"
+    echo "   - Update .graphifyignore"
+    echo "   - Write project MCP configs and rules"
+    echo "================================================================="
+    return 0
+  fi
 
   echo ""
   echo "================================================================="
@@ -244,7 +273,7 @@ process_project() {
   ensure_graphify_ignore "$repo"
 
   # D-G. Write all project-level MCP / rules files
-  write_project_mcp "$repo"
+  write_project_mcp "$repo" "$GRAPHIFY_BACKEND" "$GRAPHIFY_MODEL"
 }
 
 # ------------------------------------------------------------------------------
@@ -262,6 +291,11 @@ else
     sub_repo_name="$(basename "$sub_repo")"
 
     if [[ "$sub_repo_name" == .* ]]; then
+      continue
+    fi
+
+    if ! is_project_dir "$sub_repo"; then
+      echo "[i] Skipping non-project directory: $sub_repo_name"
       continue
     fi
 

@@ -310,7 +310,10 @@ with open(path, 'w') as f:
 # Project-level .clinerules.
 _write_clinerules() {
   local repo="$1"
-  cat << 'EOF' > "$repo/.clinerules"
+  local backend="${2:-deepseek}"
+  local model="${3:-deepseek-v4-pro}"
+  local file="$repo/.clinerules"
+  cat << 'EOF' > "$file"
 ## Code intelligence
 
 Use these tools before dumping whole files or grepping the tree.
@@ -318,17 +321,21 @@ Use these tools before dumping whole files or grepping the tree.
 1. If `.codegraph/` exists, run `codegraph explore "<symbol or question>"` (or the CodeGraph MCP tools).
 2. Use Serena MCP tools (`get_symbols_overview`, `find_symbol`, `find_declaration`, `find_referencing_symbols`, `read_memory`) for LSP-level code navigation and project memory.
 3. If `graphify-out/graph.json` exists, use Graphify (`graphify explain`, `graphify path`, or the Graphify MCP).
-4. Regenerate Graphify with `graphify extract . --backend deepseek --model deepseek-v4-pro --no-cluster` (DeepSeek `deepseek-v4-pro` is the default model). The backend and model are configurable via `setup-ai-tools.sh --provider` / `--model`. Rust workspaces also pass `--cargo`.
+4. Regenerate Graphify with `graphify extract . --backend {{BACKEND}} --model {{MODEL}} --no-cluster` ({{BACKEND}} `{{MODEL}}` is the chosen model). The backend and model are configurable via `setup-ai-tools.sh --provider` / `--model`. Rust workspaces also pass `--cargo`.
 EOF
+  sed -e "s|{{BACKEND}}|${backend}|g" -e "s|{{MODEL}}|${model}|g" "$file" > "$file.tmp"
+  mv "$file.tmp" "$file"
 }
 
 # Write all project-level MCP / rules files for a repo.
 write_project_mcp() {
   local repo="${1%/}"
+  local backend="${2:-deepseek}"
+  local model="${3:-deepseek-v4-pro}"
   _write_cline_mcp_json "$repo"
   _write_devin_mcp_json "$repo"
   _write_zed_settings "$repo"
-  _write_clinerules "$repo"
-  _write_grok_project "$repo"
+  _write_clinerules "$repo" "$backend" "$model"
+  _write_grok_project "$repo" "$backend" "$model"
   untrack_mcp_configs "$repo"
 }
