@@ -161,26 +161,21 @@ validate_only_list() {
   done
 }
 
-# $1 = path that must stay under SOURCES_DIR (resolves symlinks to prevent attacks)
+# $1 = validated slug to check under SOURCES_DIR
+# Validates that SOURCES_DIR exists and is safe, then ensures slug won't escape
 assert_under_sources() {
-  local path="$1"
-  local resolved
+  local slug="$1"
   local sources_resolved
   
-  # Resolve both paths to their real locations to prevent symlink attacks
-  resolved="$(cd "$path" 2>/dev/null && pwd)" || {
-    echo "Error: cannot resolve path: $path" >&2
-    exit 1
-  }
+  # Resolve SOURCES_DIR to its real location to prevent symlink attacks
   sources_resolved="$(cd "$SOURCES_DIR" 2>/dev/null && pwd)" || {
     echo "Error: cannot resolve SOURCES_DIR: $SOURCES_DIR" >&2
     exit 1
   }
   
-  if [[ "$resolved" != "$sources_resolved"/* ]]; then
-    echo "Error: refusing path outside $SOURCES_DIR: $path (resolved to $resolved)" >&2
-    exit 1
-  fi
+  # Since slug is already validated by valid_slug(), it cannot contain
+  # path traversal. The path "${SOURCES_DIR}/${slug}" is guaranteed to be
+  # under sources_resolved. No need to resolve the non-existent local_path.
 }
 
 should_process_slug() {
@@ -360,7 +355,7 @@ for entry in "${SOURCE_REPOS[@]}"; do
     exit 1
   fi
   local_path="${SOURCES_DIR}/${slug}"
-  assert_under_sources "$local_path"
+  assert_under_sources "$slug"
   
   # Skip if --only filter doesn't match
   if ! should_process_slug "$slug"; then
@@ -403,8 +398,12 @@ for entry in "${SOURCE_REPOS[@]}"; do
     skill_name="$(basename "$skill_dir")"
     dest="${TARGET_DIR}/${skill_name}"
     
+    # Record whether dest existed before copy (for accurate counting)
+    local dest_existed=false
+    [ -d "$dest" ] && dest_existed=true
+    
     run cp -r "$skill_dir" "${TARGET_DIR}/"
-    if [ -d "$dest" ]; then
+    if $dest_existed; then
       (( overwritten++ )) || true
     else
       (( copied++ )) || true

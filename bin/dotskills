@@ -206,7 +206,7 @@ set -- "${POSITIONAL[@]+"${POSITIONAL[@]}"}"
 
 cmd="${1:-}"
 scan_hint=""
-if [ -n "$cmd" ] && [ -e "$cmd" ] && [[ "$cmd" != skills && "$cmd" != tools && "$cmd" != all ]]; then
+if [ -n "$cmd" ] && [ -d "$cmd" ] && [[ "$cmd" != skills && "$cmd" != tools && "$cmd" != all ]]; then
   scan_hint="$(cd "$cmd" && pwd)"
   cmd=""
   shift || true
