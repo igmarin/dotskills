@@ -147,6 +147,8 @@ LIB="$SCRIPT_DIR/lib"
 . "$LIB/common.sh"
 # shellcheck source=lib/detect-tools.sh
 . "$LIB/detect-tools.sh"
+# shellcheck source=lib/codegraph.sh
+. "$LIB/codegraph.sh"
 
 # gum TUI when we are on a terminal and the caller did not pass mode flags.
 # If gum is missing: install it and stop, or continue with flags/defaults.
@@ -786,17 +788,7 @@ process_project() {
   echo "================================================================="
 
   # A. CodeGraph: init only when missing; --force on an existing index is sync
-  if [ "$RUN_CODEGRAPH" = true ] && [ -n "$CODEGRAPH_BIN" ]; then
-    if [ ! -d "$repo/.codegraph" ]; then
-      echo "[*] [CodeGraph] Initializing index..."
-      "$CODEGRAPH_BIN" init "$repo" || true
-    elif [ "$FORCE_REBUILD" = true ]; then
-      echo "[*] [CodeGraph] Syncing index..."
-      "$CODEGRAPH_BIN" sync "$repo" || true
-    else
-      echo "[✓] [CodeGraph] Already initialized."
-    fi
-  fi
+  codegraph_setup "$repo" || true
 
   # B. Serena Project Initialization
   if [ "$RUN_SERENA" = true ] && [ -n "$SERENA_BIN" ]; then
