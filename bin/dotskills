@@ -13,7 +13,9 @@
 # ==============================================================================
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/paths.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/paths.sh"
+ROOT="$(cd "$(script_dir_of "${BASH_SOURCE[0]}")/.." && pwd)"
 SKILLS="$ROOT/bin/install-skills.sh"
 TOOLS="$ROOT/bin/setup-ai-tools.sh"
 SKIP_GUM=false
@@ -29,7 +31,8 @@ Interactive (gum):
 Commands:
   skills [flags]   owned skill clones + personal skills/
   tools  [flags]   Serena / CodeGraph / Graphify / Repomix
-  all    [flags]   skills (defaults), then tools (flags go to tools)
+  all    [flags]   skills (defaults), then tools
+                   --dry-run is passed to skills and stripped from tools
 
   --no-gum         skip the TUI even in a terminal
 EOF
@@ -216,14 +219,30 @@ case "$cmd" in
     exec "$SKILLS" "$@"
     ;;
   tools)
+    if $SKIP_GUM; then
+      exec "$TOOLS" --no-gum "$@"
+    fi
     exec "$TOOLS" "$@"
     ;;
   all)
+    skill_flags=()
+    tool_flags=()
+    $SKIP_GUM && tool_flags+=(--no-gum)
+    for a in "$@"; do
+      case "$a" in
+        --dry-run|--dry-run=true) skill_flags+=(--dry-run) ;;
+        --dry-run=false) ;;  # Explicitly ignore
+        *) tool_flags+=("$a") ;;
+      esac
+    done
+    if [ "${#skill_flags[@]}" -gt 0 ]; then
+      echo "note: --dry-run applies to skills; it is not passed to tools"
+    fi
     echo "==> skills (owned repos + generic personal skills)"
-    "$SKILLS"
+    "$SKILLS" "${skill_flags[@]+"${skill_flags[@]}"}"
     echo ""
     echo "==> tools"
-    exec "$TOOLS" "$@"
+    exec "$TOOLS" "${tool_flags[@]+"${tool_flags[@]}"}"
     ;;
   "")
     if want_interactive; then

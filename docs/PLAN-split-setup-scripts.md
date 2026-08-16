@@ -40,6 +40,7 @@ bin/
 ├── install-skills.sh         # unchanged job: owned clones + extras
 ├── setup-ai-tools.sh         # thin: flags, order of steps, process_project
 └── lib/
+    ├── paths.sh              # already present — script_dir_of
     ├── detect-tools.sh       # resolve PATH + optional install
     ├── codegraph.sh          # init / skip / sync
     ├── graphify.sh           # extra, extract, .graphifyignore

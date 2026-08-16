@@ -40,7 +40,9 @@ set -euo pipefail
 
 # ── Config ──────────────────────────────────────────────────────────────────
 
-DOTSKILLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/paths.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/paths.sh"
+DOTSKILLS_DIR="$(cd "$(script_dir_of "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCES_DIR="$HOME/.dotskills/sources"
 TARGET_DIR="$HOME/.agents/skills"
 DRY_RUN=false
@@ -118,6 +120,69 @@ is_dirty() {
   git -C "$1" status --porcelain 2>/dev/null | grep -q .
 }
 
+valid_slug() {
+  local slug="$1"
+  local owner="${slug%%/*}"
+  local repo="${slug#*/}"
+  
+  # Basic format check
+  [[ "$slug" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || return 1
+  
+  # Reject path traversal
+  [[ "$slug" =~ \.\. ]] && return 1
+  
+  # Reject leading dots in owner
+  [[ "$owner" =~ ^\. ]] && return 1
+  
+  # Reject leading/trailing hyphens in owner (problematic for git clone)
+  [[ "$owner" =~ ^- ]] && return 1
+  [[ "$owner" =~ -$ ]] && return 1
+  
+  # Reject dots in repo (leading, trailing, or consecutive)
+  [[ "$repo" =~ ^\. ]] && return 1
+  [[ "$repo" =~ \.$ ]] && return 1
+  [[ "$repo" =~ \.\. ]] && return 1
+  
+  # Reject leading/trailing hyphens in repo (problematic for git clone)
+  [[ "$repo" =~ ^- ]] && return 1
+  [[ "$repo" =~ -$ ]] && return 1
+  
+  return 0
+}
+
+validate_only_list() {
+  local IFS=',' slug
+  [ -z "$ONLY_SLUG" ] && return 0
+  for slug in $ONLY_SLUG; do
+    if ! valid_slug "$slug"; then
+      echo "Error: invalid --only slug (expected owner/name): $slug" >&2
+      exit 1
+    fi
+  done
+}
+
+# $1 = path that must stay under SOURCES_DIR (resolves symlinks to prevent attacks)
+assert_under_sources() {
+  local path="$1"
+  local resolved
+  local sources_resolved
+  
+  # Resolve both paths to their real locations to prevent symlink attacks
+  resolved="$(cd "$path" 2>/dev/null && pwd)" || {
+    echo "Error: cannot resolve path: $path" >&2
+    exit 1
+  }
+  sources_resolved="$(cd "$SOURCES_DIR" 2>/dev/null && pwd)" || {
+    echo "Error: cannot resolve SOURCES_DIR: $SOURCES_DIR" >&2
+    exit 1
+  }
+  
+  if [[ "$resolved" != "$sources_resolved"/* ]]; then
+    echo "Error: refusing path outside $SOURCES_DIR: $path (resolved to $resolved)" >&2
+    exit 1
+  fi
+}
+
 should_process_slug() {
   local slug="$1"
   local IFS=','
@@ -165,7 +230,12 @@ uninstall_skills() {
   count=$(find "$TARGET_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
   
   echo "This will remove $count skill directories from $TARGET_DIR"
-  read -p "Continue? [y/N] " -n 1 -r
+  REPLY=""
+  if ! read -r -p "Continue? [y/N] " -n 1; then
+    echo
+    echo "Cancelled (read failed or EOF)."
+    return 0
+  fi
   echo
   
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -187,13 +257,7 @@ for arg in "$@"; do
     --uninstall|--clean) UNINSTALL=true ;;
     --only=*)
       ONLY_SLUG="${arg#*=}"
-      # Validate --only input for path traversal attacks
-      case "$ONLY_SLUG" in
-        *'..'*)
-          echo "Error: Path traversal not allowed in --only: $ONLY_SLUG" >&2
-          exit 1
-          ;;
-      esac
+      validate_only_list
       ;;
     --with-community) WITH_COMMUNITY=true ;;
     --with-rs-guard) WITH_RS_GUARD=true ;;
@@ -290,8 +354,13 @@ for entry in "${SOURCE_REPOS[@]}"; do
   slug=$(printf '%s' "$entry" | cut -d'|' -f1)
   url=$(printf '%s' "$entry" | cut -d'|' -f2)
   skills_subdir=$(printf '%s' "$entry" | cut -d'|' -f3)
-  
+
+  if ! valid_slug "$slug"; then
+    echo "Error: refusing invalid source slug: $slug" >&2
+    exit 1
+  fi
   local_path="${SOURCES_DIR}/${slug}"
+  assert_under_sources "$local_path"
   
   # Skip if --only filter doesn't match
   if ! should_process_slug "$slug"; then
@@ -334,11 +403,10 @@ for entry in "${SOURCE_REPOS[@]}"; do
     skill_name="$(basename "$skill_dir")"
     dest="${TARGET_DIR}/${skill_name}"
     
+    run cp -r "$skill_dir" "${TARGET_DIR}/"
     if [ -d "$dest" ]; then
-      run cp -r "$skill_dir" "${TARGET_DIR}/"
       (( overwritten++ )) || true
     else
-      run cp -r "$skill_dir" "${TARGET_DIR}/"
       (( copied++ )) || true
     fi
   done

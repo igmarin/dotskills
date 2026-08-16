@@ -92,7 +92,7 @@ cd dotskills
 `./bin/dotskills` with no command, in a terminal, is the same unit: one gum session, then skills, then tools.  
 `./bin/dotskills skills [flags]` → `bin/install-skills.sh`  
 `./bin/dotskills tools [flags]` → `bin/setup-ai-tools.sh`  
-`./bin/dotskills all [tools flags]` → skills (defaults), then tools (no gum unless tools is run alone without flags).
+`./bin/dotskills all [tools flags]` → skills (defaults), then tools. `--dry-run` on `all` is passed to skills and **not** to tools (tools would interpret `--dry-run` as a project path argument).
 
 This will:
 
@@ -106,7 +106,7 @@ To update later:
 ./install.sh
 ```
 
-Re-running is safe — it pulls the latest from each source and re-copies.
+Re-running is safe — it pulls the latest from each source and re-copies. It does **not** delete skills that left the list (old google/cloudflare copies stay until you `./install.sh --clean`).
 
 ### Flags
 
@@ -115,7 +115,7 @@ Re-running is safe — it pulls the latest from each source and re-copies.
 | `--dry-run` | Show what would happen without making changes |
 | `--verbose` | Log each command as it executes |
 | `--only=slug1,slug2` | Install only specified sources (comma-separated). Generic personal skills still copy; `setup-rs-guard` stays gated |
-| `--with-community` | npx-install owainlewis/agent-skills, owainlewis/blueprint, mattpocock/skills, dietrichgebert/ponytail (`--all`) |
+| `--with-community` | npx-install (needs `npx`; uses `--yes`) `owainlewis/agent-skills`, `owainlewis/blueprint`, `mattpocock/skills`, `dietrichgebert/ponytail` (`--all`). Not `addyosmani/agent-skills`. |
 | `--with=elixir-phoenix-skills` | Also install elixir-phoenix-skills (work-only) |
 | `--with-rs-guard` | Also copy `skills/setup-rs-guard` |
 | `--uninstall` / `--clean` | Remove all installed skills from `~/.agents/skills/` |
@@ -186,16 +186,21 @@ Interactive (gum): run with no mode flags in a terminal. Flags still work for sc
 - `.codegraph` exists → skip
 - `--force` and `.codegraph` exists → `codegraph sync` (incremental), not `init`, not a full `index`
 
-The script also writes a `.graphifyignore` so generated MCP configs are not treated as extract inputs.
+**`.graphifyignore`:** Graphify reads this file from the repo being extracted.
+- The committed `.graphifyignore` at this repo's root is used when Graphify runs on this repo.
+- `setup-ai-tools.sh` creates/updates `.graphifyignore` in each processed repo using the same patterns.
+- To change patterns for this repo: edit the committed file.
+- To change patterns for other repos: edit the script.
 
 ## Adapting this for yourself
 
 1. Fork this repo
 2. Replace the personal skills in `skills/` with your own
-3. Edit the `OWNED_REPOS` array in `install.sh` — add your own repos, remove mine
+3. Edit the `OWNED_REPOS` array in `bin/install-skills.sh` — add your own repos, remove mine
 4. Update the README table above
 
-The install script requires `git` (standard on macOS/Linux).
+`bin/install-skills.sh` (and the `./install.sh` shim) needs `git`. `--with-community` also needs `npx`.
+`bin/setup-ai-tools.sh` needs `uv` (for Serena/Graphify), `npm` (for CodeGraph), and optionally `brew` (for Repomix/gum).
 
 ## Structure
 
@@ -204,11 +209,14 @@ dotskills/
 ├── bin/
 │   ├── dotskills                  # One flow: gum TUI, or skills | tools | all
 │   ├── install-skills.sh          # Owned skill clones + personal skills/
-│   └── setup-ai-tools.sh          # Serena / CodeGraph / Graphify / Repomix
+│   ├── setup-ai-tools.sh          # Serena / CodeGraph / Graphify / Repomix
+│   └── lib/
+│       └── paths.sh               # Shared script_dir_of (symlink-safe)
 ├── install.sh                     # Shim → bin/install-skills.sh
 ├── skills/                        # Personal skills (shipped with this repo)
 │   └── setup-rs-guard/            # Optional — not copied unless --with-rs-guard
 │       └── SKILL.md
+├── .graphifyignore                # Used by Graphify in this repo (script writes the same name elsewhere)
 ├── docs/
 │   ├── PLAN-setup-ai-tools-and-refresh.md
 │   ├── PLAN-split-setup-scripts.md      # later: extract setup-ai-tools into bin/lib/
