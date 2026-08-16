@@ -11,7 +11,7 @@
 #   --verbose                 Log commands being executed
 #   --repo owner/repo         Repeatable; override default owned repo list
 #   --only=LIST               Comma-separated slugs (e.g., --only=igmarin/rails-agent-skills)
-#   --with-community          npx-install third-party collections (not clone)
+#   --npx owner/repo          Repeatable; npx-install a skill collection
 #   --with=elixir-phoenix-skills
 #                             Work-only: also install igmarin/elixir-phoenix-skills
 #   --with-rs-guard           Also copy skills/setup-rs-guard (personal review runbook)
@@ -28,7 +28,8 @@
 #
 # Usage:
 #   ./install.sh                              — owned repos + generic personal skills
-#   ./install.sh --with-community             — also npx third-party collections
+#   ./install.sh --npx owainlewis/blueprint   — also npx-install that collection
+#   ./install.sh --npx owner/repo             — npx-install a custom collection
 #   ./install.sh --with=elixir-phoenix-skills — also elixir (work machine)
 #   ./install.sh --with-rs-guard              — also setup-rs-guard
 #   ./install.sh --dry-run
@@ -53,10 +54,10 @@ DRY_RUN=false
 VERBOSE=false
 UNINSTALL=false
 ONLY_SLUG=""
-WITH_COMMUNITY=false
 WITH_RS_GUARD=false
 WITH_ELIXIR=false
 declare -a REPO_OVERRIDES=()
+declare -a NPX_OVERRIDES=()
 
 # Default: repos you author. Elixir is opt-in. Community is npx, not clone.
 declare -a OWNED_REPOS=(
@@ -65,8 +66,11 @@ declare -a OWNED_REPOS=(
   "igmarin/rails-agent-skills|https://github.com/igmarin/rails-agent-skills.git|skills"
 )
 
-# Collections: npx skills install -g <slug> --all
+# Default npx skill collections (shown pre-selected in the TUI as recommended).
 declare -a NPX_COMMUNITY=(
+  "igmarin/agnostic-planning-skills"
+  "igmarin/ruby-core-skills"
+  "igmarin/rails-agent-skills"
   "owainlewis/agent-skills"
   "owainlewis/blueprint"
   "mattpocock/skills"
@@ -84,7 +88,7 @@ check_dependencies() {
   local missing=()
   local cmd
   local required=(git)
-  if $WITH_COMMUNITY; then
+  if [ "${#NPX_OVERRIDES[@]}" -gt 0 ]; then
     required+=(npx)
   fi
   for cmd in "${required[@]}"; do
@@ -194,9 +198,20 @@ should_process_slug() {
 }
 
 install_community_via_npx() {
+  local -a selected=()
+  if [ "${#NPX_OVERRIDES[@]}" -gt 0 ]; then
+    selected=("${NPX_OVERRIDES[@]}")
+  else
+    selected=("${NPX_COMMUNITY[@]}")
+  fi
+
   local slug
-  info "[npx community collections]"
-  for slug in "${NPX_COMMUNITY[@]}"; do
+  info "[npx skill collections]"
+  for slug in "${selected[@]}"; do
+    if ! valid_slug "$slug"; then
+      echo "Error: invalid npx slug: $slug" >&2
+      exit 1
+    fi
     if ! should_process_slug "$slug"; then
       log "(skipping $slug — not in --only list)"
       continue
@@ -204,7 +219,7 @@ install_community_via_npx() {
     log "npx skills install -g $slug --all"
     run npx --yes skills install -g "$slug" --all
   done
-  ok "community collections via npx"
+  ok "skill collections via npx"
 }
 
 uninstall_skills() {
@@ -274,7 +289,27 @@ while [[ $# -gt 0 ]]; do
       REPO_OVERRIDES+=("$slug")
       shift
       ;;
-    --with-community) WITH_COMMUNITY=true; shift ;;
+    --npx)
+      if [ -z "${2:-}" ]; then
+        echo "Error: --npx needs an owner/repo slug" >&2
+        exit 1
+      fi
+      if ! valid_slug "$2"; then
+        echo "Error: invalid --npx slug (expected owner/name): $2" >&2
+        exit 1
+      fi
+      NPX_OVERRIDES+=("$2")
+      shift 2
+      ;;
+    --npx=*)
+      slug="${1#*=}"
+      if ! valid_slug "$slug"; then
+        echo "Error: invalid --npx slug (expected owner/name): $slug" >&2
+        exit 1
+      fi
+      NPX_OVERRIDES+=("$slug")
+      shift
+      ;;
     --with-rs-guard) WITH_RS_GUARD=true; shift ;;
     --with=elixir-phoenix-skills|--with=igmarin/elixir-phoenix-skills)
       WITH_ELIXIR=true
@@ -283,7 +318,7 @@ while [[ $# -gt 0 ]]; do
     --with=*)
       echo "Unknown extra: ${1#*=}" >&2
       echo "Known extras: elixir-phoenix-skills" >&2
-      echo "Also: --with-community  --with-rs-guard" >&2
+      echo "Also: --with-rs-guard  --npx owner/repo" >&2
       exit 1
       ;;
     --help|-h)
@@ -292,7 +327,7 @@ dotskills install.sh
 
 Installs skills you author into ~/.agents/skills/.
 Third-party collections: npx skills install -g <slug> --all
-  (--with-community runs those). Do not clone them here.
+  (--npx owner/repo selects those). Do not clone them here.
 ./install.sh copies owned trees and will overwrite a same-named skill from npx.
 
 Features:
@@ -301,11 +336,10 @@ Features:
   --repo owner/repo
                  Repeatable; use instead of the default owned repo list.
                  Example: --repo igmarin/ruby-core-skills
+  --npx owner/repo
+                 Repeatable; npx-install a skill collection.
+                 Example: --npx owainlewis/blueprint
   --only=LIST    Comma-separated slugs (e.g., --only=igmarin/rails-agent-skills)
-  --with-community
-                 npx-install collections (not clone):
-                 owainlewis/agent-skills, owainlewis/blueprint,
-                 mattpocock/skills, dietrichgebert/ponytail
   --with=elixir-phoenix-skills
                  Work-only: also install igmarin/elixir-phoenix-skills
   --with-rs-guard
@@ -321,9 +355,19 @@ Default sources (later copies override earlier on collision):
   dotskills/skills/   (generic personal skills — always last, always win)
                       setup-rs-guard is skipped unless --with-rs-guard
 
+Recommended npx collections (selectable in the TUI; not installed by default):
+  igmarin/agnostic-planning-skills
+  igmarin/ruby-core-skills
+  igmarin/rails-agent-skills
+  owainlewis/agent-skills
+  owainlewis/blueprint
+  mattpocock/skills
+  dietrichgebert/ponytail
+
 Usage:
   ./install.sh                              — owned repos + generic personal skills
-  ./install.sh --with-community             — also npx third-party collections
+  ./install.sh --npx owainlewis/blueprint   — also npx-install that collection
+  ./install.sh --npx owner/repo             — npx-install a custom collection
   ./install.sh --with=elixir-phoenix-skills — also elixir (work machine)
   ./install.sh --with-rs-guard              — also setup-rs-guard
   ./install.sh --repo owner/repo            — override owned repos
@@ -354,7 +398,7 @@ if $UNINSTALL; then
   exit 0
 fi
 
-# Lowest priority first. npx community (opt-in) < selected repos or owned < elixir (opt-in) < personal.
+# Lowest priority first. npx collections (opt-in) < selected repos or owned < elixir (opt-in) < personal.
 SOURCE_REPOS=()
 
 if [ "${#REPO_OVERRIDES[@]}" -gt 0 ]; then
@@ -372,7 +416,7 @@ fi
 run mkdir -p "$SOURCES_DIR"
 run mkdir -p "$TARGET_DIR"
 
-if $WITH_COMMUNITY; then
+if [ "${#NPX_OVERRIDES[@]}" -gt 0 ]; then
   install_community_via_npx
 fi
 

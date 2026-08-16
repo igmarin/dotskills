@@ -318,7 +318,7 @@ Use these tools before dumping whole files or grepping the tree.
 1. If `.codegraph/` exists, run `codegraph explore "<symbol or question>"` (or the CodeGraph MCP tools).
 2. Use Serena MCP tools (`get_symbols_overview`, `find_symbol`, `find_declaration`, `find_referencing_symbols`, `read_memory`) for LSP-level code navigation and project memory.
 3. If `graphify-out/graph.json` exists, use Graphify (`graphify explain`, `graphify path`, or the Graphify MCP).
-4. Regenerate Graphify with `graphify extract . --backend deepseek --model deepseek-v4-pro --no-cluster` (DeepSeek is the global LLM). Rust workspaces also pass `--cargo`.
+4. Regenerate Graphify with `graphify extract . --backend deepseek --model deepseek-v4-pro --no-cluster` (DeepSeek `deepseek-v4-pro` is the default model). The backend and model are configurable via `setup-ai-tools.sh --provider` / `--model`. Rust workspaces also pass `--cargo`.
 EOF
 }
 

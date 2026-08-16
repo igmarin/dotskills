@@ -7,11 +7,13 @@ This doc maps the constants, arrays, and `bin/lib/` modules so the next graph bu
 These arrays control which skills get installed and where they come from.
 
 - `OWNED_REPOS` — fallback list of personal skill repos. Used only when `gh` is missing/not authed and no `--repo` flag is passed.
-- `NPX_COMMUNITY` — addyosmani/blueprint, installed via `npx` with `--with-community`.
+- `NPX_COMMUNITY` — recommended npx skill collections, including `igmarin/` repos and third-party collections. Pre-selected in the `bin/dotskills` TUI; not installed unless selected.
+- `NPX_OVERRIDES` — runtime list from `--npx owner/repo` flags.
 - `SOURCE_REPOS` — runtime list built from `--repo` overrides (or `OWNED_REPOS` fallback) + optional `--with=elixir-phoenix-skills`. Used to clone or update sources under `~/.dotskills/sources/`.
 - `--repo owner/repo` — repeatable flag that adds a GitHub repo (`https://github.com/owner/repo.git`, `skills/` subdir) to `SOURCE_REPOS`.
+- `--npx owner/repo` — repeatable flag that npx-installs a skill collection.
 
-`bin/dotskills` (interactive) calls `select_gh_repos()` to list the last 50 updated repos via `gh repo list --limit 50`, then `gum choose --no-limit` for multi-select, then allows custom `owner/repo` input. Selected repos are passed as `--repo owner/repo` to `install-skills.sh`.
+`bin/dotskills` (interactive) calls `select_gh_repos()` to list the last 50 updated repos via `gh repo list --limit 50`, then `gum choose --no-limit` for multi-select, then allows custom `owner/repo` input. Selected repos are passed as `--repo owner/repo` to `install-skills.sh`. For npx collections, the TUI shows `NPX_COMMUNITY` pre-selected and allows custom `owner/repo` npx slugs; selected ones are passed as `--npx owner/repo`.
 
 The script also uses `assert_under_sources()` and `valid_slug()` (from `test-validation.sh`) to keep all paths inside `~/.dotskills/sources/` and reject path-escape slugs.
 
@@ -20,6 +22,7 @@ The script also uses `assert_under_sources()` and `valid_slug()` (from `test-val
 - `PATH` — the script prepends `$HOME/.local/bin`, `/opt/homebrew/bin`, and `/usr/local/bin` so `uv`, `npm`, `grok`, `serena`, `codegraph`, and `graphify` resolve in non-interactive shells.
 - Default tool flags: `RUN_SERENA`, `RUN_CODEGRAPH`, `RUN_GRAPHIFY`, `FORCE_REBUILD`, `AUTO_INSTALL`.
 - `--repo` can be repeated to target multiple repos; otherwise it defaults to the current directory.
+- `GRAPHIFY_BACKEND` (default `deepseek`) and `GRAPHIFY_MODEL` (default `deepseek-v4-pro`) are configurable via `--provider` / `--model` or the corresponding environment variables.
 
 ## `bin/lib/` module map
 

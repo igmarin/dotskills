@@ -7,7 +7,8 @@
 #   GRAPHIFY_MCP_BIN
 #   FORCE_REBUILD
 #   RUN_GRAPHIFY
-#   DEEPSEEK_API_KEY
+#   GRAPHIFY_BACKEND   (default: deepseek)
+#   GRAPHIFY_MODEL     (default: deepseek-v4-pro)
 
 # shellcheck source=lib/common.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
@@ -46,12 +47,12 @@ ensure_graphify_mcp_extra() {
   echo "[*] Graphify extras missing — installing graphifyy[mcp,openai]..."
   if command -v uv >/dev/null 2>&1; then
     uv tool install --force --reinstall "graphifyy[mcp,openai]" || {
-      echo "[!] Failed to install graphifyy[mcp,openai] via uv. Graphify MCP / DeepSeek extract will fail."
+      echo "[!] Failed to install graphifyy[mcp,openai] via uv. Graphify MCP / model extract will fail."
       return 1
     }
   else
     "$mcp_py" -m pip install -q "graphifyy[mcp,openai]" || {
-      echo "[!] Failed to install graphifyy[mcp,openai] via pip. Graphify MCP / DeepSeek extract will fail."
+      echo "[!] Failed to install graphifyy[mcp,openai] via pip. Graphify MCP / model extract will fail."
       return 1
     }
   fi
@@ -93,18 +94,29 @@ graphify_extract() {
     return 0
   fi
 
-  if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
-    echo "[!] [Graphify] Skipped extraction (DEEPSEEK_API_KEY not set)."
+  local backend="${GRAPHIFY_BACKEND:-deepseek}"
+  local model="${GRAPHIFY_MODEL:-deepseek-v4-pro}"
+
+  # Determine expected API key for this backend.
+  local key_var
+  case "$backend" in
+    deepseek) key_var="DEEPSEEK_API_KEY" ;;
+    openai)   key_var="OPENAI_API_KEY" ;;
+    *)        key_var="GRAPHIFY_API_KEY" ;;
+  esac
+
+  if [ -z "${!key_var:-}" ]; then
+    echo "[!] [Graphify] Skipped extraction ($key_var not set)."
     return 0
   fi
 
   if [ "$FORCE_REBUILD" = true ] || [ ! -f "$repo/graphify-out/graph.json" ]; then
-    echo "[*] [Graphify] Extracting knowledge graph via DeepSeek (deepseek-v4-pro)..."
+    echo "[*] [Graphify] Extracting knowledge graph via $backend ($model)..."
     local extra_flags=""
     if [ -f "$repo/Cargo.toml" ]; then
       extra_flags="--cargo"
     fi
-    if "$GRAPHIFY_BIN" extract "$repo" --backend deepseek --model deepseek-v4-pro --no-cluster $extra_flags; then
+    if "$GRAPHIFY_BIN" extract "$repo" --backend "$backend" --model "$model" --no-cluster $extra_flags; then
       return 0
     else
       return 1

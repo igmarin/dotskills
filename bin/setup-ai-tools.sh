@@ -6,7 +6,7 @@
 # and AI clients:
 #   - Serena (LSP AST analysis, symbol navigation, diagnostics, refactoring, memories)
 #   - CodeGraph (Fast SQLite AST knowledge graph + call graph)
-#   - Graphify (Full architecture knowledge graph extracted via DeepSeek deepseek-v4-pro)
+#   - Graphify (Full architecture knowledge graph; default DeepSeek deepseek-v4-pro, configurable provider/model)
 #
 # Auto-install (skipped with --no-install). uv is installed first if Serena or
 # Graphify need it and it is not on PATH.
@@ -38,11 +38,14 @@
 #   ./bin/setup-ai-tools.sh /path/to/Projects         # Configure all repos in folder
 #   ./bin/setup-ai-tools.sh /path/to/Projects/my-repo # Configure single repo
 #   ./bin/setup-ai-tools.sh --force                   # Graphify re-extract; CodeGraph sync
+#   ./bin/setup-ai-tools.sh --provider openai --model gpt-5.6
+#                                                     # Use an OpenAI-compatible model
 #   ./bin/setup-ai-tools.sh --serena-only             # Run only Serena setup
 #   ./bin/setup-ai-tools.sh --codegraph-only          # Run only CodeGraph setup
 #   ./bin/setup-ai-tools.sh --graphify-only           # Run only Graphify extraction
 #   ./bin/setup-ai-tools.sh --no-install              # Do not auto-install missing tools
 #   ./bin/setup-ai-tools.sh --skip-serena             # Do not run Serena
+#   ./bin/setup-ai-tools.sh --skip-graphify           # Do not run Graphify
 #   ./bin/setup-ai-tools.sh --repo /path/to/repo      # Repeatable; target repo
 # ==============================================================================
 
@@ -58,6 +61,8 @@ FORCE_REBUILD=false
 AUTO_INSTALL=true
 TARGET_PATH=""
 SELECTED_REPOS=()
+GRAPHIFY_BACKEND="${GRAPHIFY_BACKEND:-deepseek}"
+GRAPHIFY_MODEL="${GRAPHIFY_MODEL:-deepseek-v4-pro}"
 
 # Parse command line options
 while [[ $# -gt 0 ]]; do
@@ -79,6 +84,22 @@ while [[ $# -gt 0 ]]; do
       RUN_CODEGRAPH=false
       RUN_GRAPHIFY=true
       shift
+      ;;
+    --provider)
+      if [ -z "${2:-}" ]; then
+        echo "Error: --provider needs a value" >&2
+        exit 1
+      fi
+      GRAPHIFY_BACKEND="$2"
+      shift 2
+      ;;
+    --model)
+      if [ -z "${2:-}" ]; then
+        echo "Error: --model needs a value" >&2
+        exit 1
+      fi
+      GRAPHIFY_MODEL="$2"
+      shift 2
       ;;
     --force)
       FORCE_REBUILD=true
@@ -148,7 +169,7 @@ if [ "${#SELECTED_REPOS[@]}" -gt 0 ]; then
 fi
 echo " Force Rebuild:    $FORCE_REBUILD"
 echo " Auto Install:     $AUTO_INSTALL"
-echo " DeepSeek Model:   deepseek-v4-pro"
+echo " Provider/Model:   $GRAPHIFY_BACKEND / $GRAPHIFY_MODEL"
 echo "================================================================="
 
 # ------------------------------------------------------------------------------
@@ -172,9 +193,16 @@ echo "[✓] Grok:      ${GROK_BIN:-NOT FOUND}"
 
 ensure_graphify_mcp_extra "$GRAPHIFY_MCP_BIN" || true
 
-if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
-  echo "[!] Warning: DEEPSEEK_API_KEY is not set in the current environment."
-  echo "    Graphify semantic extraction will be skipped unless DEEPSEEK_API_KEY is exported."
+# Determine which API key graphify will need for the chosen backend.
+case "$GRAPHIFY_BACKEND" in
+  deepseek) GRAPHIFY_API_KEY_VAR="DEEPSEEK_API_KEY" ;;
+  openai)   GRAPHIFY_API_KEY_VAR="OPENAI_API_KEY" ;;
+  *)        GRAPHIFY_API_KEY_VAR="GRAPHIFY_API_KEY" ;;
+esac
+
+if [ -z "${!GRAPHIFY_API_KEY_VAR:-}" ]; then
+  echo "[!] Warning: $GRAPHIFY_API_KEY_VAR is not set in the current environment."
+  echo "    Graphify extraction will be skipped unless $GRAPHIFY_API_KEY_VAR is exported."
 fi
 
 # ------------------------------------------------------------------------------

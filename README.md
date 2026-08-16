@@ -34,7 +34,7 @@ If you find them useful, fork this repo and replace the personal references with
 
 **Clone with `./install.sh`** only for skills you author. It copies trees into `~/.agents/skills/` and will overwrite a same-named skill that npx already put there.
 
-**Install third-party collections with npx**, not a git clone. `npx skills install -g <slug> --all` pulls the whole collection and updates it the same way later. Cloning those repos here fights npx and goes stale.
+**Install third-party and published collections with npx**, not a git clone. `npx skills install -g <slug> --all` pulls the whole collection and updates it the same way later. Cloning those repos here fights npx and goes stale.
 
 This machine's `~/.agents/skills/` mix is not a source of truth and is not harvested into this repo.
 
@@ -50,7 +50,9 @@ Interactive (`./bin/dotskills` or `./bin/dotskills skills` in a terminal):
 Non-interactive / script:
 ```bash
 ./bin/dotskills skills --repo owner/repo-name --repo owner/another-repo
+./bin/dotskills skills --npx owainlewis/blueprint --npx owner/another-collection
 ./install.sh --repo owner/repo-name --repo owner/another-repo
+./install.sh --npx owner/another-collection
 ```
 
 | Priority | Source | When |
@@ -64,22 +66,25 @@ Non-interactive / script:
 
 ### npx (collections — not cloned)
 
-Pass `--all` because these are collections:
+Pass `--all` because these are collections. The `bin/dotskills` TUI shows the recommended list pre-selected and lets you add custom `owner/repo` slugs; non-interactively use `--npx owner/repo`.
 
 ```bash
+npx skills install -g igmarin/agnostic-planning-skills --all
+npx skills install -g igmarin/ruby-core-skills --all
+npx skills install -g igmarin/rails-agent-skills --all
 npx skills install -g owainlewis/agent-skills --all
 npx skills install -g owainlewis/blueprint --all
 npx skills install -g mattpocock/skills --all
 npx skills install -g dietrichgebert/ponytail --all
 ```
 
-`./install.sh --with-community` runs those four. It does **not** clone them.
+`./install.sh --npx owner/repo` npx-installs that collection. It does **not** clone it. The recommended collections are pre-selected in the TUI.
 
 ### Optional extras (off by default)
 
 | Flag | What it adds |
-|------|----------------|
-| `--with-community` | npx-install the four collections above |
+|------|-------------|
+| `--npx owner/repo` | npx-install the recommended collections above, or any custom collection |
 | `--with=elixir-phoenix-skills` | Clone [`igmarin/elixir-phoenix-skills`](https://github.com/igmarin/elixir-phoenix-skills) — work machine only |
 | `--with-rs-guard` | Copy `skills/setup-rs-guard` (personal AI-review runbook; not for every fork) |
 
@@ -94,7 +99,7 @@ npx skills install -g dietrichgebert/ponytail --all
 ```bash
 git clone https://github.com/igmarin/dotskills.git
 cd dotskills
-./bin/dotskills              # gum: pick skill repos from gh + tools + repos
+./bin/dotskills              # gum: pick skill repos from gh + npx collections + tools + repos
 ./install.sh                 # skills only: default owned repos (shim)
 ./bin/dotskills all --no-gum --no-install .
 ```
@@ -102,7 +107,7 @@ cd dotskills
 `./bin/dotskills` with no command, in a terminal, is the same unit: one gum session, then skills, then tools. The skills step uses `gh repo list` if `gh` is installed and authenticated; otherwise it falls back to the default owned repos.  
 `./bin/dotskills skills [flags]` → `bin/install-skills.sh`  
 `./bin/dotskills tools [flags]` → `bin/setup-ai-tools.sh`  
-`./bin/dotskills all [tools flags]` → skills (defaults), then tools. `--dry-run` on `all` is passed to skills and **not** to tools (tools would interpret `--dry-run` as a project path argument).
+`./bin/dotskills all [tools flags]` → skills (defaults), then tools. `--dry-run` on `all` is passed to skills and **not** to tools (tools would interpret `--dry-run` as a project path argument). Skill flags include `--repo` and `--npx`; tool flags include `--provider` and `--model` for graphify.
 
 This will:
 
@@ -125,7 +130,8 @@ Re-running is safe — it pulls the latest from each source and re-copies. It do
 | `--dry-run` | Show what would happen without making changes |
 | `--verbose` | Log each command as it executes |
 | `--only=slug1,slug2` | Install only specified sources (comma-separated). Generic personal skills still copy; `setup-rs-guard` stays gated |
-| `--with-community` | npx-install (needs `npx`; uses `--yes`) `owainlewis/agent-skills`, `owainlewis/blueprint`, `mattpocock/skills`, `dietrichgebert/ponytail` (`--all`). Not `addyosmani/agent-skills`. |
+| `--repo owner/repo` | Clone an additional owned repo (repeatable). Overrides the default list. |
+| `--npx owner/repo` | npx-install a skill collection (repeatable). Pre-selected in the TUI. |
 | `--with=elixir-phoenix-skills` | Also install elixir-phoenix-skills (work-only) |
 | `--with-rs-guard` | Also copy `skills/setup-rs-guard` |
 | `--uninstall` / `--clean` | Remove all installed skills from `~/.agents/skills/` |
@@ -167,7 +173,7 @@ Removes all skills from `~/.agents/skills/` with a confirmation prompt.
 
 This is a **bash program you run in a terminal**. It is not an agent skill. Do not look for `/setup-ai-tools`.
 
-It installs and configures Serena, CodeGraph, and Graphify (MCP configs, global gitignore, optional gum TUI).
+It installs and configures Serena, CodeGraph, and Graphify (MCP configs, global gitignore, optional gum TUI). Graphify defaults to DeepSeek `deepseek-v4-pro` and is configurable with `--provider` and `--model`.
 
 Home of the script: `bin/setup-ai-tools.sh` in this repo. Always run that file (or a symlink you create). Do not hardcode a volume or username.
 
@@ -186,7 +192,7 @@ ln -sfn "$PWD/bin/setup-ai-tools.sh" "$(dirname "$PWD")/setup-ai-tools.sh"
 ../setup-ai-tools.sh /path/to/a/repo
 ```
 
-Interactive (gum): run with no mode flags in a terminal. Flags still work for scripts and CI (`--no-gum`, `--no-install`, `--force`, `--serena-only`, `--codegraph-only`, `--graphify-only`).
+Interactive (gum): run with no mode flags in a terminal. Flags still work for scripts and CI (`--no-gum`, `--no-install`, `--force`, `--serena-only`, `--codegraph-only`, `--graphify-only`, `--provider <name>`, `--model <name>`).
 
 **Graphify extra:** `uv tool install --force --reinstall "graphifyy[mcp,openai]"`. DeepSeek extract needs the `openai` extra.
 
@@ -207,9 +213,10 @@ Interactive (gum): run with no mode flags in a terminal. Flags still work for sc
 1. Fork this repo
 2. Replace the personal skills in `skills/` with your own
 3. Edit the `OWNED_REPOS` array in `bin/install-skills.sh` — add your own repos, remove mine
-4. Update the README table above
+4. Edit the `NPX_COMMUNITY` array in `bin/install-skills.sh` — add your own npx collections, remove mine
+5. Update the README table above
 
-`bin/install-skills.sh` (and the `./install.sh` shim) needs `git`. `--with-community` also needs `npx`.
+`bin/install-skills.sh` (and the `./install.sh` shim) needs `git`. `--npx owner/repo` also needs `npx`.
 `bin/setup-ai-tools.sh` needs `uv` (for Serena/Graphify) and `npm` (for CodeGraph). `bin/dotskills` uses `gum` for the interactive menu.
 
 ## Structure

@@ -23,6 +23,17 @@ SKILLS="$ROOT/bin/install-skills.sh"
 TOOLS="$ROOT/bin/setup-ai-tools.sh"
 SKIP_GUM=false
 
+# Recommended npx skill collections (mirrors install-skills.sh; shown pre-selected in TUI).
+declare -a NPX_DEFAULT=(
+  "igmarin/agnostic-planning-skills"
+  "igmarin/ruby-core-skills"
+  "igmarin/rails-agent-skills"
+  "owainlewis/agent-skills"
+  "owainlewis/blueprint"
+  "mattpocock/skills"
+  "dietrichgebert/ponytail"
+)
+
 usage() {
   cat <<'EOF'
 dotskills — one configuration flow for skills and local AI tools
@@ -35,7 +46,10 @@ Commands:
   skills [flags]   owned skill clones + personal skills/
                    Interactive: pick repos from `gh repo list` + custom input
                    --repo owner/repo (repeatable; overrides default list)
+                   --npx owner/repo  (repeatable; npx-install a collection)
   tools  [flags]   Serena / CodeGraph / Graphify
+                   --provider <name>  (graphify backend: deepseek, openai)
+                   --model <name>     (graphify model; default deepseek-v4-pro)
   all    [flags]   skills (defaults), then tools
                    --dry-run is passed to skills and stripped from tools
 
@@ -152,14 +166,28 @@ select_gh_repos() {
   done
 }
 
+# Prompt for one or more custom npx slugs and append to an array.
+_prompt_custom_npx() {
+  local -n arr="$1"
+  local custom
+  while gum confirm --default=true "Add a custom owner/repo for npx skills?"; do
+    custom="$(gum input --placeholder "owner/repo-name")" || break
+    if [ -n "$custom" ] && valid_slug "$custom"; then
+      arr+=("$custom")
+    else
+      echo "[!] Invalid slug: $custom (expected owner/repo)"
+    fi
+  done
+}
+
 run_unified_gum() {
   local scan_root="$1"
-  local jobs extras tools_sel selected_names name
+  local jobs extras tools_sel selected_names name npx_sel npx_item
   local run_skills=false run_tools=false
-  local with_community=false with_elixir=false with_rs_guard=false
+  local with_elixir=false with_rs_guard=false
   local run_serena=true run_codegraph=true run_graphify=true
   local force=false auto_install=true
-  local -a repo_names=() selected_repos=() selected_skill_repos=() skill_args=() tool_args=()
+  local -a repo_names=() selected_repos=() selected_skill_repos=() selected_npx=() skill_args=() tool_args=()
 
   jobs="$(gum choose --no-limit \
     --header "What to configure? (space to toggle, enter to confirm)" \
@@ -170,12 +198,28 @@ run_unified_gum() {
   has_line "$jobs" "Tools (Serena / CodeGraph / Graphify)" && run_tools=true
 
   if $run_skills; then
+    # npx skill collections: show recommended list pre-selected, allow custom slugs.
+    echo ""
+    echo "[*] Select npx skill collections (recommended are pre-selected, space to toggle):"
+    local npx_cmd=(gum choose --no-limit --header "npx skill collections")
+    for npx_item in "${NPX_DEFAULT[@]}"; do
+      npx_cmd+=(--selected "$npx_item")
+    done
+    for npx_item in "${NPX_DEFAULT[@]}"; do
+      npx_cmd+=("$npx_item")
+    done
+    npx_sel="$("${npx_cmd[@]}")" || npx_sel=""
+    if [ -n "$npx_sel" ]; then
+      while IFS= read -r r; do
+        [ -n "$r" ] && selected_npx+=("$r")
+      done <<< "$npx_sel"
+    fi
+    _prompt_custom_npx selected_npx
+
     extras="$(gum choose --no-limit \
       --header "Skill extras? (none is fine — space to toggle)" \
-      "Community collections (npx --all)" \
       "Elixir Phoenix skills (work)" \
       "setup-rs-guard (opt-in)")" || extras=""
-    has_line "$extras" "Community collections (npx --all)" && with_community=true
     has_line "$extras" "Elixir Phoenix skills (work)" && with_elixir=true
     has_line "$extras" "setup-rs-guard (opt-in)" && with_rs_guard=true
 
@@ -229,12 +273,14 @@ run_unified_gum() {
   fi
 
   if $run_skills; then
-    $with_community && skill_args+=(--with-community)
     $with_elixir && skill_args+=(--with=elixir-phoenix-skills)
     $with_rs_guard && skill_args+=(--with-rs-guard)
     local r
     for r in "${selected_skill_repos[@]}"; do
       skill_args+=(--repo "$r")
+    done
+    for r in "${selected_npx[@]}"; do
+      skill_args+=(--npx "$r")
     done
     echo ""
     echo "==> skills"
@@ -315,12 +361,59 @@ case "$cmd" in
           fi
           shift
           ;;
-        --with-community|--with-rs-guard|--with=elixir-phoenix-skills|--with=igmarin/elixir-phoenix-skills)
+        --npx)
+          if [ -z "${2:-}" ]; then
+            echo "Error: --npx needs an argument" >&2
+            exit 1
+          fi
+          if valid_slug "$2"; then
+            skill_flags+=(--npx "$2")
+          else
+            echo "Error: invalid --npx slug (expected owner/name): $2" >&2
+            exit 1
+          fi
+          shift 2
+          ;;
+        --npx=*)
+          val="${a#*=}"
+          if valid_slug "$val"; then
+            skill_flags+=(--npx "$val")
+          else
+            echo "Error: invalid --npx slug (expected owner/name): $val" >&2
+            exit 1
+          fi
+          shift
+          ;;
+        --provider)
+          if [ -z "${2:-}" ]; then
+            echo "Error: --provider needs an argument" >&2
+            exit 1
+          fi
+          tool_flags+=(--provider "$2")
+          shift 2
+          ;;
+        --provider=*)
+          tool_flags+=(--provider "${a#*=}")
+          shift
+          ;;
+        --model)
+          if [ -z "${2:-}" ]; then
+            echo "Error: --model needs an argument" >&2
+            exit 1
+          fi
+          tool_flags+=(--model "$2")
+          shift 2
+          ;;
+        --model=*)
+          tool_flags+=(--model "${a#*=}")
+          shift
+          ;;
+        --with-rs-guard|--with=elixir-phoenix-skills|--with=igmarin/elixir-phoenix-skills)
           skill_flags+=("$a"); shift ;;
         --with=*)
           echo "Unknown extra: ${a#*=}" >&2
           echo "Known extras: elixir-phoenix-skills" >&2
-          echo "Also: --with-community  --with-rs-guard" >&2
+          echo "Also: --with-rs-guard  --npx owner/repo" >&2
           exit 1
           ;;
         *) tool_flags+=("$a"); shift ;;
