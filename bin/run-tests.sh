@@ -36,6 +36,10 @@ else
   fail=1
 fi
 
+if ! python3 -m unittest discover -s "$ROOT/tests" -p 'test_*.py'; then
+  fail=1
+fi
+
 # 3. Run shellcheck if it is installed.
 # -S warning blocks only warning/error findings, not style/info, so CI stays
 # green for cosmetic issues while still catching real problems.

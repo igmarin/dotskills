@@ -34,13 +34,51 @@ import sys
 try:
     import tomllib
 except ModuleNotFoundError:
-    import tomli as tomllib
+    tomllib = None
+
+
+def fallback_toml(text):
+    """Read the two string-array settings dotskills supports on Python < 3.11."""
+    result, section, key, values = {}, None, None, []
+    saw_content = False
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            continue
+        saw_content = True
+        if line.startswith("[") and line.endswith("]"):
+            section, key, values = line[1:-1].strip(), None, []
+            continue
+        if "=" in line and key is None:
+            candidate, value = (part.strip() for part in line.split("=", 1))
+            if value.startswith("["):
+                key = candidate
+                values = [v.strip().strip('"') for v in value[1:].split("]", 1)[0].split(",") if v.strip()]
+                if "]" in value:
+                    result.setdefault(section, {})[key] = values
+                    key = None
+            continue
+        if key:
+            done = "]" in line
+            values.extend(v.strip().strip('"') for v in line.split("]", 1)[0].split(",") if v.strip())
+            if done:
+                result.setdefault(section, {})[key] = values
+                key = None
+            continue
+        raise ValueError("unsupported TOML syntax")
+    if key:
+        raise ValueError("unterminated array")
+    if saw_content and not result:
+        raise ValueError("unsupported TOML syntax")
+    return result
 
 
 def load(path):
     try:
         with open(path, "rb") as f:
-            return tomllib.load(f)
+            if tomllib:
+                return tomllib.load(f)
+            return fallback_toml(f.read().decode("utf-8"))
     except FileNotFoundError:
         # Optional file is missing. Ignore silently.
         return {}
