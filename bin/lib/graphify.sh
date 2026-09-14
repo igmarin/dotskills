@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Graphify setup helper.
 #
 # Usage: . "$LIB/graphify.sh"

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Shared path helpers. Source from a file that already knows this path
 # (bin/*.sh → ./lib/paths.sh). Do not source this to *find* the repo —
 # a symlink outside the tree cannot see this file until the caller

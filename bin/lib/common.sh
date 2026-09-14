@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Shared helper functions for dotskills scripts.
 # Source this from any script that needs logging, dry-run wrappers, etc.
 #

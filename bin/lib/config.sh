@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # dotskills configuration loader.
 #
 # Usage: . "$LIB/config.sh"

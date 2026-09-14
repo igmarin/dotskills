@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Tool detection and installation helpers.
 #
 # Usage: . "$LIB/detect-tools.sh"
