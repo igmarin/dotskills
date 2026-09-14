@@ -121,10 +121,12 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --skip-codegraph)
+      # shellcheck disable=SC2034 # Used by sourced setup helpers.
       RUN_CODEGRAPH=false
       shift
       ;;
     --skip-graphify)
+      # shellcheck disable=SC2034 # Used by sourced setup helpers.
       RUN_GRAPHIFY=false
       shift
       ;;
@@ -235,7 +237,8 @@ fi
 # ------------------------------------------------------------------------------
 process_project() {
   local repo="${1%/}"
-  local repo_name="$(basename "$repo")"
+  local repo_name
+  repo_name="$(basename "$repo")"
 
   if $DRY_RUN; then
     echo ""
