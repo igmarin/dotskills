@@ -26,7 +26,7 @@ If they are useful, fork the repo and replace the personal references with your 
 
 ## `./install.sh` vs npx
 
-- **Clone with `./install.sh`** only for skills you author. It copies trees into `~/.agents/skills/` and overwrites a same-named skill that npx already put there.
+- **Clone with `./install.sh`** only for skills you author. It copies trees into `~/.agents/skills/` and records explicit skill identities. Same-name ownership collisions stop before owned skills are copied.
 - **Install third-party and published collections with npx**, not a git clone. `npx skills install -g <slug> --all` pulls the whole collection and updates it the same way. Cloning those repos here fights npx and goes stale.
 
 This machine's `~/.agents/skills/` mix is not a source of truth and is not copied into this repo.
@@ -109,7 +109,7 @@ This will:
 
 1. Create `~/.dotskills/sources/` and clone the selected source repos there.
 2. Copy those skills into `~/.agents/skills/`.
-3. Copy generic personal skills last (they always win). `setup-rs-guard` is not copied unless you pass `--with-rs-guard`.
+3. Include generic personal skills using the same collision checks. `setup-rs-guard` is not copied unless you pass `--with-rs-guard`.
 
 To update later:
 

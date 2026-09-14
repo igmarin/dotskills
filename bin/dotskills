@@ -168,12 +168,12 @@ select_gh_repos() {
 
 # Prompt for one or more custom npx slugs and append to an array.
 _prompt_custom_npx() {
-  local -n arr="$1"
+  local -n arr_ref="$1"
   local custom
   while gum confirm --default=true "Add a custom owner/repo for npx skills?"; do
     custom="$(gum input --placeholder "owner/repo-name")" || break
     if [ -n "$custom" ] && valid_slug "$custom"; then
-      arr+=("$custom")
+      arr_ref+=("$custom")
     else
       echo "[!] Invalid slug: $custom (expected owner/repo)"
     fi

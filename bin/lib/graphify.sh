@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Graphify setup helper.
 #
 # Usage: . "$LIB/graphify.sh"
@@ -58,6 +59,7 @@ ensure_graphify_mcp_extra() {
   fi
 
   if [ -x "$HOME/.local/bin/graphify-mcp" ]; then
+    # shellcheck disable=SC2034 # Public variable consumed by sourced helpers.
     GRAPHIFY_MCP_BIN="$HOME/.local/bin/graphify-mcp"
   fi
   if "$mcp_py" -c "from mcp.server.stdio import stdio_server" >/dev/null 2>&1 \

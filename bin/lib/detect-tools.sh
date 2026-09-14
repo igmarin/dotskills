@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Tool detection and installation helpers.
 #
 # Usage: . "$LIB/detect-tools.sh"
@@ -45,6 +46,7 @@ resolve_tool_bins() {
     "$HOME/.local/bin/graphify-mcp" \
     || true)"
 
+  # shellcheck disable=SC2034 # Public variable consumed by sourced helpers.
   GROK_BIN="$(first_existing \
     "$(command -v grok 2>/dev/null || true)" \
     "$HOME/.local/bin/grok" \

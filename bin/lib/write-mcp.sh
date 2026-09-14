@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # MCP, gitignore, and AI client configuration orchestrator.
 #
 # Usage: . "$LIB/write-mcp.sh"

@@ -4,7 +4,7 @@
 #
 # Installs skills you author into ~/.agents/skills/. Third-party collections
 # belong to npx (`npx skills install -g <slug> --all`). This script copies
-# owned trees and will overwrite a same-named skill that npx put there.
+# owned trees and refuses ambiguous or unmanaged skill names.
 #
 # Features:
 #   --dry-run                 Show what would happen, no changes
@@ -19,12 +19,12 @@
 #   --clean                   Alias for --uninstall
 #   --help                    Show this message
 #
-# Default sources (later copies override earlier on collision).
+# Default sources (skill name collisions are errors).
 # Read from dotskills.toml and ~/.dotskills/config.toml; hard-coded values are the fallback:
 #   igmarin/agnostic-planning-skills
 #   igmarin/ruby-core-skills
 #   igmarin/rails-agent-skills
-#   dotskills/skills/          (generic personal skills — always last, always win)
+#   dotskills/skills/          (generic personal skills — names must be unique)
 #                              setup-rs-guard is skipped unless --with-rs-guard
 #
 # Usage:
@@ -99,7 +99,7 @@ declare -a SOURCE_REPOS=()
 check_dependencies() {
   local missing=()
   local cmd
-  local required=(git)
+  local required=(git python3)
   if [ "${#NPX_OVERRIDES[@]}" -gt 0 ]; then
     required+=(npx)
   fi
@@ -315,7 +315,7 @@ dotskills install.sh
 Installs skills you author into ~/.agents/skills/.
 Third-party collections: npx skills install -g <slug> --all
   (--npx owner/repo selects those). Do not clone them here.
-./install.sh copies owned trees and will overwrite a same-named skill from npx.
+./install.sh records skill identities and refuses same-name ownership collisions.
 
 Features:
   --dry-run      Show what would happen, no changes
@@ -335,12 +335,12 @@ Features:
   --clean        Alias for --uninstall
   --help         Show this message
 
-Default sources (later copies override earlier on collision).
+Default sources (skill name collisions are errors).
 Read from dotskills.toml and ~/.dotskills/config.toml; hard-coded values are the fallback:
   igmarin/agnostic-planning-skills
   igmarin/ruby-core-skills
   igmarin/rails-agent-skills
-  dotskills/skills/   (generic personal skills — always last, always win)
+  dotskills/skills/   (generic personal skills — names must be unique)
                       setup-rs-guard is skipped unless --with-rs-guard
 
 Recommended npx collections (selectable in the TUI; not installed by default):
@@ -386,7 +386,7 @@ if $UNINSTALL; then
   exit 0
 fi
 
-# Lowest priority first. npx collections (opt-in) < selected repos or owned < elixir (opt-in) < personal.
+# Select source repositories. Owned skill names must have one explicit owner.
 SOURCE_REPOS=()
 
 if [ "${#REPO_OVERRIDES[@]}" -gt 0 ]; then
@@ -408,7 +408,9 @@ if [ "${#NPX_OVERRIDES[@]}" -gt 0 ]; then
   install_community_via_npx
 fi
 
-# Install each source repo
+declare -a INSTALL_SOURCES=()
+
+# Collect each source before checking collisions and copying.
 for entry in "${SOURCE_REPOS[@]}"; do
   # Parse entry without polluting global IFS
   slug=$(printf '%s' "$entry" | cut -d'|' -f1)
@@ -456,29 +458,14 @@ for entry in "${SOURCE_REPOS[@]}"; do
     continue
   fi
   
-  copied=0
-  overwritten=0
   for skill_dir in "${skills_path}"/*/; do
-    [ -d "$skill_dir" ] || continue
-    skill_name="$(basename "$skill_dir")"
-    dest="${TARGET_DIR}/${skill_name}"
-    
-    # Record whether dest existed before copy (for accurate counting)
-    dest_existed=false
-    [ -d "$dest" ] && dest_existed=true
-    
-    run cp -r "$skill_dir" "${TARGET_DIR}/"
-    if $dest_existed; then
-      (( overwritten++ )) || true
-    else
-      (( copied++ )) || true
-    fi
+    [ -f "${skill_dir}/SKILL.md" ] || continue
+    INSTALL_SOURCES+=("${slug}" "${skill_dir%/}")
   done
-  
-  ok "$((copied + overwritten)) skills installed ($overwritten overwritten from lower-priority source)"
+
 done
 
-# Install personal skills from this repo (highest priority — always last)
+# Collect personal skills from this repo (same collision checks).
 # Personal skills are always installed regardless of --only filter
 info "[dotskills/skills — personal]"
 personal_skills_dir="${DOTSKILLS_DIR}/skills"
@@ -494,15 +481,19 @@ if [ -d "$personal_skills_dir" ]; then
       (( skipped++ )) || true
       continue
     fi
-    run cp -r "$skill_dir" "${TARGET_DIR}/"
+    INSTALL_SOURCES+=("igmarin/dotskills" "${skill_dir%/}")
     (( copied++ )) || true
   done
-  ok "$copied personal skill(s) installed (these always win over all sources)"
+  ok "$copied personal skill(s) selected"
   if [ "$skipped" -gt 0 ]; then
     log "$skipped optional personal skill(s) skipped"
   fi
 else
   warn "No skills/ directory found in dotskills — nothing personal to install"
+fi
+
+if [ "${#INSTALL_SOURCES[@]}" -gt 0 ]; then
+  run python3 "${DOTSKILLS_DIR}/bin/lib/install_owned.py" "$TARGET_DIR" "${INSTALL_SOURCES[@]}"
 fi
 
 # Summary

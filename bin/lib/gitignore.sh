@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Global gitignore and MCP config untracking helpers.
 #
 # Usage: . "$LIB/gitignore.sh"

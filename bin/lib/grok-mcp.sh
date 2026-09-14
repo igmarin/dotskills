@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Grok MCP, hooks, and rules helpers.
 #
 # Usage: . "$LIB/grok-mcp.sh"

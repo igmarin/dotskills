@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # CodeGraph setup helper.
 #
 # Usage: . "$LIB/codegraph.sh"
